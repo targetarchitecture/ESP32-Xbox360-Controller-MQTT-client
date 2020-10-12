@@ -11,9 +11,13 @@ USB Usb;
 XBOXRECV Xbox(&Usb);
 
 //timing and state variables
-unsigned long rumbleStartTime = millis();
+unsigned long rumbleStartTime;
 bool rumbleState = false;
-unsigned long batteryStateTime = millis();
+unsigned long ledOnStartTime;
+bool ledOnState = false;
+unsigned long batteryStateTime;
+unsigned long connectionStateTime;
+unsigned long controllerStateTime;
 
 void setup()
 {
@@ -21,7 +25,7 @@ void setup()
 
   Serial.begin(115200);
 
-  delay(1000);
+  delay(500);
 
   if (Usb.Init() == -1)
   {
@@ -31,15 +35,30 @@ void setup()
       ; //halt
   }
 
-  wdt_enable(WDTO_2S);
-
-  Serial.println(F("Xbox Wireless Receiver Library Started"));
+  //Serial.println(F("Xbox Wireless Receiver Library Started"));
   Serial.println(F("START"));
+
+  //set start times
+  rumbleStartTime = millis();
+  ledOnStartTime = millis();
+  batteryStateTime = millis();
+  connectionStateTime = millis() - 300000;
+  controllerStateTime = millis() - 300000;
+
+  wdt_enable(WDTO_2S);
 }
 
 void loop()
 {
   Usb.Task();
+
+  //send reciever state every 30 seconds
+  if (millis() - connectionStateTime >= 10000)
+  {
+    connectionStateTime = millis();
+    Serial.print(F("ReceiverConnected: "));
+    Serial.println(Xbox.XboxReceiverConnected);
+  }
 
   if (Xbox.XboxReceiverConnected)
   {
@@ -47,6 +66,14 @@ void loop()
     // for (uint8_t i = 0; i < 4; i++)
     // {
     uint8_t i = 0;
+
+    //send controller state every 5 seconds
+    if (millis() - controllerStateTime >= 5000)
+    {
+      controllerStateTime = millis();
+      Serial.print(F("ControllerConnected: "));
+      Serial.println(Xbox.XboxReceiverConnected);
+    }
 
     if (Xbox.Xbox360Connected[i])
     {
@@ -57,6 +84,18 @@ void loop()
         Serial.print(F("Battery: "));
         Serial.println(Xbox.getBatteryLevel(i)); // The battery level in the range 0-3
       }
+
+      //LED fail safe, turn off after 60 seconds
+      if (ledOnState == true)
+      {
+        if (millis() - ledOnStartTime >= 60000) //test whether the period has elapsed
+        {
+          Xbox.setLedOff(i);
+          ledOnState = false;
+        }
+      }
+
+      //  Xbox.getButtonPress
 
       //sort out rumbles...
       //rumble fail safe , turn off after 10 seconds
@@ -72,37 +111,118 @@ void loop()
       //see if there is a command on the Serial line
       if (Serial.available())
       {
-        auto command = Serial.readStringUntil('\n');
+        String command = Serial.readStringUntil('\n');
 
-        Serial.print("Comand Recieved '");
+        Serial.print("Command Echo '");
         Serial.print(command);
         Serial.println("'");
 
-        if (command == (String)"setRumbleOn: BIG")
+        if (command.startsWith("setBigRumbleOn:") == true)
         {
-          Xbox.setRumbleOn(1, 0, i);
+          String value = command.substring(command.indexOf(':') + 1);
+
+          // Serial.print("Value Recieved '");
+          // Serial.print(value.toInt());
+          // Serial.println("'");
+
+          Xbox.setRumbleOn(value.toInt(), 0, i);
           rumbleState = true;
           rumbleStartTime = millis();
         }
-        if (command == (String)"setRumbleOn: SMALL")
+        if (command.startsWith("setSmallRumbleOn:") == true)
         {
-          Xbox.setRumbleOn(0, 1, i);
+          String value = command.substring(command.indexOf(':') + 1);
+
+          Xbox.setRumbleOn(0, value.toInt(), i);
           rumbleState = true;
           rumbleStartTime = millis();
         }
-        if (command == (String)"setRumbleOn: BOTH")
+        if (command.startsWith("setBothRumbleOn:") == true)
         {
-          Xbox.setRumbleOn(1, 1, i);
+          String value = command.substring(command.indexOf(':') + 1);
+
+          Xbox.setRumbleOn(value.toInt(), value.toInt(), i);
           rumbleState = true;
           rumbleStartTime = millis();
         }
-        if (command == (String)"setRumbleOff")
+        if (command == "setRumbleOff")
         {
           Xbox.setRumbleOff(i);
           rumbleState = false;
         }
+
+        if (command == "setLedOn: 1")
+        {
+          Xbox.setLedOn(LED1, i);
+          ledOnState = true;
+          ledOnStartTime = millis();
+        }
+
+        if (command == "setLedOn: 2")
+        {
+          Xbox.setLedOn(LED2, i);
+          ledOnState = true;
+          ledOnStartTime = millis();
+        }
+
+        if (command == "setLedOn: 3")
+        {
+          Xbox.setLedOn(LED3, i);
+          ledOnState = true;
+          ledOnStartTime = millis();
+        }
+
+        if (command == "setLedOn: 4")
+        {
+          Xbox.setLedOn(LED4, i);
+          ledOnState = true;
+          ledOnStartTime = millis();
+        }
+
+        if (command == "setLedMode: All")
+        {
+          Xbox.setLedOn(ALL, i);
+          ledOnState = true;
+          ledOnStartTime = millis();
+        }
+
+        if (command == "setLedMode: Alternating")
+        {
+          Xbox.setLedMode(ALTERNATING, i);
+          ledOnState = true;
+          ledOnStartTime = millis();
+        }
+
+        if (command == "setLedMode: Rotating")
+        {
+          Xbox.setLedMode(ROTATING, i);
+          ledOnState = true;
+          ledOnStartTime = millis();
+        }
+
+        if (command == "setLedMode: FastBlink")
+        {
+          Xbox.setLedMode(FASTBLINK, i);
+          ledOnState = true;
+          ledOnStartTime = millis();
+        }
+
+        if (command == "setLedMode: SlowBlink")
+        {
+          Xbox.setLedMode(SLOWBLINK, i);
+          ledOnState = true;
+          ledOnStartTime = millis();
+        }
+
+        if (command == "setLedOff")
+        {
+          Xbox.setLedOn(ALL, i);
+          //Xbox.setLedOff(i);
+          ledOnState = false;
+        }
       }
 
+      //now get the button and stick states
       if (Xbox.getButtonPress(L2, i))
       {
         Serial.print("L2: ");
@@ -139,35 +259,46 @@ void loop()
         }
       }
 
+      if (Xbox.getButtonPress(UP, i) == 1)
+      {
+        Serial.println(F("Up"));
+      }
+      if (Xbox.getButtonPress(DOWN, i) == 1)
+      {
+        Serial.println(F("Down"));
+      }
+      if (Xbox.getButtonPress(LEFT, i) == 1)
+      {
+        Serial.println(F("Left"));
+      }
+      if (Xbox.getButtonPress(RIGHT, i) == 1)
+      {
+        Serial.println(F("Right"));
+      }
+
       if (Xbox.getButtonClick(UP, i))
       {
-        //Xbox.setLedOn(LED1, i);
-        Serial.println(F("Up"));
+        Serial.println(F("Click: Up"));
       }
       if (Xbox.getButtonClick(DOWN, i))
       {
-        //Xbox.setLedOn(LED4, i);
-        Serial.println(F("Down"));
+        Serial.println(F("Click: Down"));
       }
       if (Xbox.getButtonClick(LEFT, i))
       {
-        //Xbox.setLedOn(LED3, i);
-        Serial.println(F("Left"));
+        Serial.println(F("Click: Left"));
       }
       if (Xbox.getButtonClick(RIGHT, i))
       {
-        //Xbox.setLedOn(LED2, i);
-        Serial.println(F("Right"));
+        Serial.println(F("Click: Right"));
       }
 
       if (Xbox.getButtonClick(START, i))
       {
-        //Xbox.setLedMode(ALTERNATING, i);
         Serial.println(F("Start"));
       }
       if (Xbox.getButtonClick(BACK, i))
       {
-        //Xbox.setLedBlink(ALL, i);
         Serial.println(F("Back"));
       }
       if (Xbox.getButtonClick(L3, i))
@@ -188,9 +319,6 @@ void loop()
       }
       if (Xbox.getButtonClick(XBOX, i))
       {
-        // Xbox.setLedMode(ROTATING, i);
-
-        // Serial.println(F(")"));
         Serial.println(F("XBOX"));
       }
       if (Xbox.getButtonClick(SYNC, i))
@@ -221,12 +349,8 @@ void loop()
     //reset watchdog timer
     wdt_reset();
   }
-  // else
-  // {
-  //   //XboxReceiverConnected not connected
-  //   Serial.println(F("XboxReceiverConnected: False"));
 
-  //   delay(1000);
-  // }
   Serial.flush();
+
+  delay(50);
 }
