@@ -21,15 +21,18 @@ unsigned long controllerStateTime;
 
 void setup()
 {
+  //disable the watchdog
   wdt_disable();
 
   Serial.begin(115200);
 
   delay(500);
 
+  //start two second watchdog timer
+  wdt_enable(WDTO_2S);
+
   if (Usb.Init() == -1)
   {
-    Serial.println(F("OSC did not start"));
     Serial.println(F("STOP"));
     while (1)
       ; //halt
@@ -45,7 +48,8 @@ void setup()
   connectionStateTime = millis() - 300000;
   controllerStateTime = millis() - 300000;
 
-  wdt_enable(WDTO_2S);
+  //reset watchdog timer
+  wdt_reset();
 }
 
 void loop()
@@ -94,8 +98,6 @@ void loop()
           ledOnState = false;
         }
       }
-
-      //  Xbox.getButtonPress
 
       //sort out rumbles...
       //rumble fail safe , turn off after 10 seconds
@@ -216,8 +218,8 @@ void loop()
 
         if (command == "setLedOff")
         {
-          Xbox.setLedOn(ALL, i);
-          //Xbox.setLedOff(i);
+          //Xbox.setLedOn(ALL, i);
+          Xbox.setLedOff(i);
           ledOnState = false;
         }
       }
@@ -261,19 +263,19 @@ void loop()
 
       if (Xbox.getButtonPress(UP, i) == 1)
       {
-        Serial.println(F("Up"));
+        Serial.println(F("Press: Up"));
       }
       if (Xbox.getButtonPress(DOWN, i) == 1)
       {
-        Serial.println(F("Down"));
+        Serial.println(F("Press: Down"));
       }
       if (Xbox.getButtonPress(LEFT, i) == 1)
       {
-        Serial.println(F("Left"));
+        Serial.println(F("Press: Left"));
       }
       if (Xbox.getButtonPress(RIGHT, i) == 1)
       {
-        Serial.println(F("Right"));
+        Serial.println(F("Press: Right"));
       }
 
       if (Xbox.getButtonClick(UP, i))
@@ -295,53 +297,79 @@ void loop()
 
       if (Xbox.getButtonClick(START, i))
       {
-        Serial.println(F("Start"));
+        Serial.println(F("Click: Start"));
       }
       if (Xbox.getButtonClick(BACK, i))
       {
-        Serial.println(F("Back"));
+        Serial.println(F("Click: Back"));
       }
       if (Xbox.getButtonClick(L3, i))
       {
-        Serial.println(F("L3"));
+        Serial.println(F("Click: L3"));
       }
       if (Xbox.getButtonClick(R3, i))
       {
-        Serial.println(F("R3"));
+        Serial.println(F("Click: R3"));
       }
       if (Xbox.getButtonClick(L1, i))
       {
-        Serial.println(F("L1"));
+        Serial.println(F("Click: L1"));
       }
       if (Xbox.getButtonClick(R1, i))
       {
-        Serial.println(F("R1"));
+        Serial.println(F("Click: R1"));
       }
       if (Xbox.getButtonClick(XBOX, i))
       {
-        Serial.println(F("XBOX"));
+        Serial.println(F("Click: XBOX"));
       }
       if (Xbox.getButtonClick(SYNC, i))
       {
-        Serial.println(F("XBOX"));
+        Serial.println(F("Click: XBOX"));
         Xbox.disconnect(i);
+      }
+
+      if (Xbox.getButtonPress(L1, i))
+      {
+        Serial.println(F("Press: L1"));
+      }
+      if (Xbox.getButtonPress(R1, i))
+      {
+        Serial.println(F("Press: R1"));
       }
 
       if (Xbox.getButtonClick(A, i))
       {
-        Serial.println(F("A"));
+        Serial.println(F("Click: A"));
       }
       if (Xbox.getButtonClick(B, i))
       {
-        Serial.println(F("B"));
+        Serial.println(F("Click: B"));
       }
       if (Xbox.getButtonClick(X, i))
       {
-        Serial.println(F("X"));
+        Serial.println(F("Click: X"));
       }
       if (Xbox.getButtonClick(Y, i))
       {
-        Serial.println(F("Y"));
+        Serial.println(F("Click: Y"));
+      }
+
+      if (Xbox.getButtonPress(A, i) == 1)
+      {
+        Serial.println(F("Press: A"));
+      }
+      if (Xbox.getButtonPress(B, i) == 1)
+      {
+        Serial.println(F("Press: B"));
+      }
+      if (Xbox.getButtonPress(X, i) == 1)
+      {
+        Serial.println(F("Press: X"));
+      }
+      if (Xbox.getButtonPress(Y, i) == 1)
+      {
+        Serial.println(F("Press: Y"));
       }
       //} multiple controller looop
     }
@@ -352,5 +380,5 @@ void loop()
 
   Serial.flush();
 
-  delay(50);
+  yield();
 }
