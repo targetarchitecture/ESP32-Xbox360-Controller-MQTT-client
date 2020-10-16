@@ -12,10 +12,14 @@
 // #define SCREEN_HEIGHT 64
 
 SSD1306 display(0x3c, 21, 22);
+QueueHandle_t queue;
+TaskHandle_t Task1;
 
 unsigned long messageStartTime;
 unsigned long messageCount = 0;
 unsigned long maxMessageCount = 0; //874 seems to be it (with OLED display this is down to 402), (770 if not writing to serial and writing to OLED every second)
+
+void loop1(void *parameter);
 
 void setup()
 {
@@ -40,11 +44,18 @@ void setup()
     ESP.restart();
   }
 
-  display.init();
-  display.flipScreenVertically();
-  display.setFont(ArialMT_Plain_24);
-  display.drawString(0, 0, "Hello World");
-  display.display();
+  // Create the queue with 5 slots of 2 bytes
+  queue = xQueueCreate(5, sizeof(String));
+
+  xTaskCreatePinnedToCore(
+      loop1,   /* Function to implement the task */
+      "Task1", /* Name of the task */
+      1000,    /* Stack size in words */
+      NULL,    /* Task input parameter */
+      0,       /* Priority of the task */
+      &Task1,  /* Task handle. */
+      0);      /* Core where the task should run */
+
 
   messageStartTime = millis();
 }
@@ -62,7 +73,7 @@ void loop()
     //Serial.print(F("Max Messages Recieved: "));
     //Serial.println();
 
-    String message = "Max:" + (String) maxMessageCount;
+    String message = "Max:" + (String)maxMessageCount;
 
     display.clear();
     display.drawString(0, 0, message);
@@ -82,5 +93,26 @@ void loop()
     messageCount++;
 
     digitalWrite(LED_BUILTIN, LOW);
+  }
+}
+
+void loop1(void *parameter)
+{
+  for (;;)
+  {
+    // Get the number of flashes required
+    // int flashTotal;
+    // xQueueReceive(queue, &flashTotal, portMAX_DELAY);
+
+    // Serial.println("Worker - reading " + String(flashTotal));
+
+  display.init();
+  display.flipScreenVertically();
+  display.setFont(ArialMT_Plain_24);
+  display.drawString(0, 0, "Hello World");
+  display.display();
+
+    // Slow motion delay here
+    //delay(1000);
   }
 }
