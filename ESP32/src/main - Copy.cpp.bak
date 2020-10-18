@@ -11,18 +11,19 @@
 
 WiFiClient client;
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
-// QueueHandle_t messageQueue;
-// TaskHandle_t displayMessageTask;
+QueueHandle_t messageQueue;
+TaskHandle_t displayMessageTask;
 PubSubClient MQTTClient;
 
 unsigned long messageStartTime;
 unsigned long messageCount = 0;
 unsigned long maxMessageCount = 0; //874 seems to be it (with OLED display this is down to 402), (770 if not writing to serial and writing to OLED every second)
 
-void displayMessage(String message);
+void displayMessage(void *parameter);
 void sendMQTTmessage(String message);
 void updateMessageCount();
 void checkMQTTconnection();
+void printMessage(String message);
 
 void setup()
 {
@@ -41,7 +42,7 @@ void setup()
   btStop();
 
   // Create the queues with
-  //messageQueue = xQueueCreate(2, sizeof(String));
+  messageQueue = xQueueCreate(2, sizeof(String));
 
   if (display.begin(SSD1306_SWITCHCAPVCC, 0x3C) == false)
   {
@@ -54,10 +55,20 @@ void setup()
     //https://javl.github.io/image2cpp/
     display.drawBitmap(0, 16, xboxLogo, 128, 48, WHITE); // display.drawBitmap(x position, y position, bitmap data, bitmap width, bitmap height, color)
     display.display();
+
+    //create a seperate task for OLED display
+    xTaskCreatePinnedToCore(
+        displayMessage,      /* Function to implement the task */
+        "Display Message",   /* Name of the task */
+        5000,                /* Stack size in words */
+        NULL,                /* Task input parameter */
+        2,                   /* Priority of the task */
+        &displayMessageTask, /* Task handle. */
+        1);                  /* Core where the task should run */
   }
 
   //WIFI start up
-  displayMessage("Connecting to " + (String)ssid);
+  printMessage("Connecting to " + (String)ssid);
   //Serial.printf("Connecting to %s\n", ssid);
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
@@ -66,20 +77,20 @@ void setup()
   while (WiFi.status() != WL_CONNECTED)
   {
     delay(500);
-    displayMessage(".");
+    Serial.println(".");
   }
 
-  displayMessage("Connected! IP address: ");
-  displayMessage(WiFi.localIP().toString());
+  Serial.print("Connected! IP address: ");
+  Serial.println(WiFi.localIP());
 
   //set this to be a large enough value to allow an MQTT message containing a 22Kb JPEG to be sent
   MQTTClient.setBufferSize(30000);
 
-  displayMessage("Connecting to MQTT server");
+  Serial.println("Connecting to MQTT server");
   MQTTClient.setClient(client);
   MQTTClient.setServer(MQTT_SERVER, 1883);
 
-  displayMessage("connect mqtt...");
+  Serial.println("connect mqtt...");
   checkMQTTconnection();
 
   messageStartTime = millis();
@@ -95,7 +106,7 @@ void loop()
 
     auto message = Serial2.readStringUntil('\n');
 
-   // Serial.println(message);
+    Serial.println(message);
 
     sendMQTTmessage(message);
 
@@ -104,6 +115,11 @@ void loop()
     digitalWrite(LED_BUILTIN, LOW);
   }
 }
+
+void printMessage(String message){
+    xQueueSend(messageQueue, &message, portMAX_DELAY);
+}
+
 
 void updateMessageCount()
 {
@@ -116,32 +132,43 @@ void updateMessageCount()
     }
     messageStartTime = millis();
     //Serial.print("Max Messages Recieved: " + (String)maxMessageCount);
-    displayMessage("Max Msg Recieved: " + (String)maxMessageCount);
+    Serial.println("Max Messages Recieved: " + (String)maxMessageCount);
 
-    //String message = "Max: " + (String)maxMessageCount;
+    String message = "Max: " + (String)maxMessageCount;
 
-    // displayMessage(message);
+    xQueueSend(messageQueue, &message, portMAX_DELAY);
 
     messageCount = 0;
   }
 }
 
-void displayMessage(String message)
+void displayMessage(void *parameter)
 {
-  Serial.println(message);
+  for (;;)
+  {
+    String message;
+    xQueueReceive(messageQueue, &message, portMAX_DELAY);
 
-  display.clearDisplay(); //for Clearing the display
+    Serial.println("Worker - reading " + message);
 
-  //https://javl.github.io/image2cpp/
+    // display.clear();
+    // display.setFont(ArialMT_Plain_10);
+    // display.drawString(0, 0, message);
+    // display.display();
 
-  display.setTextSize(1); // Draw 2X-scale text
-  display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 0);
+    display.clearDisplay(); //for Clearing the display
+    //https://javl.github.io/image2cpp/
+    //display.print(message);
 
-  display.print((String)message);
+    display.setTextSize(1); // Draw 2X-scale text
+    display.setTextColor(SSD1306_WHITE);
+    display.setCursor(0, 0);
+    //display.println(F("hello"));
+    display.println((String)message);
 
-  display.drawBitmap(0, 16, xboxLogo, 128, 48, WHITE); // display.drawBitmap(x position, y position, bitmap data, bitmap width, bitmap height, color)
-  display.display();
+    display.drawBitmap(0, 16, xboxLogo, 128, 48, WHITE); // display.drawBitmap(x position, y position, bitmap data, bitmap width, bitmap height, color)
+    display.display();
+  }
 }
 
 void sendMQTTmessage(String message)
@@ -157,9 +184,10 @@ void checkMQTTconnection()
 {
   if (!MQTTClient.connected())
   {
+
     if (MQTTClient.connect(MQTT_CLIENTID, MQTT_USERNAME, MQTT_KEY))
     {
-     displayMessage("Connected to MQTT server");
+      Serial.println("Connected to MQTT server");
     }
   }
 }
