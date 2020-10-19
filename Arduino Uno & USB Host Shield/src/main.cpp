@@ -216,7 +216,7 @@ void loop()
           ledOnStartTime = millis();
         }
 
-        if (command == "setLedOff")
+        if ((command == "setLedOff") || (command == "setLedMode: Off"))
         {
           //Xbox.setLedOn(ALL, i);
           Xbox.setLedOff(i);
@@ -325,7 +325,7 @@ void loop()
       }
       if (Xbox.getButtonClick(SYNC, i))
       {
-        Serial.println(F("Click: XBOX"));
+        Serial.println(F("Click: SYNC"));
         Xbox.disconnect(i);
       }
 
