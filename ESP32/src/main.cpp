@@ -6,6 +6,8 @@
 #include <PubSubClient.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <string>
+#include <locale>
 
 #define LED_BUILTIN 2
 #define USE_SERIAL
@@ -21,21 +23,22 @@ unsigned long messageStartTime;
 unsigned long messageCount = 0;
 unsigned long maxMessageCount = 0; //874 seems to be it (with OLED display this is down to 402), (770 if not writing to serial and writing to OLED every second)
 
-void displayMessage(String message);
-void sendMQTTmessage(String message);
+void displayMessage(std::string message);
+void sendMQTTmessage(std::string message);
 void updateMessageCount();
 void checkMQTTconnection();
+std::string &ltrim(std::string &str);
+std::string &rtrim(std::string &str);
 
 void setup()
 {
-  pinMode(23, OUTPUT);
-  digitalWrite(23, HIGH);
-
+  //set onboard LED
   pinMode(LED_BUILTIN, OUTPUT);
 
   //turn off bluetooth
   btStop();
 
+//set serial ports
 #if defined(USE_SERIAL)
   Serial.begin(115200);
   Serial.setDebugOutput(true);
@@ -46,17 +49,13 @@ void setup()
   // Init I2C bus & OLED
   Wire.begin();
 
+  //setup OLED display
   if (display.begin(SSD1306_SWITCHCAPVCC, 0x3C, false, true) == false)
   {
     digitalWrite(LED_BUILTIN, HIGH);
     delay(5000);
     ESP.restart();
   }
-
-  display.clearDisplay(); //for Clearing the display
-  //https://javl.github.io/image2cpp/
-  display.drawBitmap(0, 16, xboxLogo, 128, 48, WHITE); // display.drawBitmap(x position, y position, bitmap data, bitmap width, bitmap height, color)
-  display.display();
 
   //WIFI start up
   displayMessage("Connecting to WiFi"); // + (String)ssid);
@@ -70,8 +69,10 @@ void setup()
     displayMessage(".");
   }
 
-  displayMessage("Connected! IP address: ");
-  displayMessage(WiFi.localIP().toString());
+  std::string message = "Connected! IP address: ";
+
+  displayMessage(message);
+  //displayMessage(WiFi.localIP(). .toString());
 
   //set this to be a large enough value to allow an MQTT message containing a 22Kb JPEG to be sent
   MQTTClient.setBufferSize(30000);
@@ -94,7 +95,7 @@ void loop()
   {
     digitalWrite(LED_BUILTIN, HIGH);
 
-    auto message = Serial2.readStringUntil('\n');
+    std::string message = Serial2.readStringUntil('\n').c_str();
 
     sendMQTTmessage(message);
 
@@ -116,117 +117,124 @@ void updateMessageCount()
 
     messageStartTime = millis();
 
-    displayMessage("Max Msg Recieved: " + (String)maxMessageCount);
+    displayMessage("Max Msg Recieved: " + maxMessageCount);
 
     messageCount = 0;
   }
 }
 
-void displayMessage(String message)
+void displayMessage(std::string message)
 {
 #if defined(USE_SERIAL)
-  Serial.println(message);
+  Serial.println(message.c_str());
 #endif
 
   display.clearDisplay(); //for Clearing the display
   display.setTextSize(1); // Draw 2X-scale text
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 0);
-  display.print((String)message);
+  display.print(message.c_str());
 
   display.drawBitmap(0, 16, xboxLogo, 128, 48, WHITE); // display.drawBitmap(x position, y position, bitmap data, bitmap width, bitmap height, color)
   display.display();                                   //https://javl.github.io/image2cpp/
 }
 
-void sendMQTTmessage(String message)
+void sendMQTTmessage(std::string message)
 {
   checkMQTTconnection();
 
   //deal with the message and make ready for sending
-  message.trim();
-  message.toLowerCase();
+  message = ltrim(message);
+  message = rtrim(message);
+  //message.trim();
+  //message..toLowerCase();
 
-  auto mqttMessage = message.c_str();
-  auto tempValue = message.substring(message.indexOf(':') + 1);
+  for (auto &c : message)
+  {
+    c = tolower(c);
+  }
+
+  auto mqttMessage = message; //.c_str();
+  auto tempValue = message.substr(message.find(':') + 1);
   auto mqttValue = tempValue.c_str();
 
-  if (message == F("click: up"))
+  if (message == "click: up")
   {
     MQTTClient.publish("XBOX360/1/D-Pad/Up", "Click");
   }
-  if (message == F("click: down"))
+  if (message == "click: down")
   {
     MQTTClient.publish("XBOX360/1/D-Pad/Down", "Click");
   }
-  if (message == F("click: left"))
+  if (message == "click: left")
   {
     MQTTClient.publish("XBOX360/1/D-Pad/Left", "Click");
   }
-  if (message == F("click: right"))
+  if (message == "click: right")
   {
     MQTTClient.publish("XBOX360/1/D-Pad/Up", "Click");
   }
 
-  // if (message == F("press: r1"))
+  // if (message == "press: r1"))
   // {
   //   MQTTClient.publish("XBOX360/1/Bumper/Right", "Press");
   // }
 
-  // if (message == F("press: l1"))
+  // if (message == "press: l1"))
   // {
   //   MQTTClient.publish("XBOX360/1/Bumper/Left", "Press");
   // }
 
-  if (message == F("click: l1"))
+  if (message == "click: l1")
   {
     MQTTClient.publish("XBOX360/1/Bumper/Left", "Click");
   }
 
-  if (message == F("click: r1"))
+  if (message == "click: r1")
   {
     MQTTClient.publish("XBOX360/1/Bumper/Right", "Click");
   }
 
-  if (message == F("click: a"))
+  if (message == "click: a")
   {
     MQTTClient.publish("XBOX360/1/Button/A", "Click");
   }
-  if (message == F("click: b"))
+  if (message == "click: b")
   {
     MQTTClient.publish("XBOX360/1/Button/B", "Click");
   }
-  if (message == F("click: x"))
+  if (message == "click: x")
   {
     MQTTClient.publish("XBOX360/1/Button/X", "Click");
   }
-  if (message == F("click: y"))
+  if (message == "click: y")
   {
     MQTTClient.publish("XBOX360/1/Button/Y", "Click");
   }
 
-  if (message == F("click: xbox"))
+  if (message == "click: xbox")
   {
     MQTTClient.publish("XBOX360/1/Button/XBOX", "Click");
   }
-  if (message == F("click: back"))
+  if (message == "click: back")
   {
     MQTTClient.publish("XBOX360/1/Button/Back", "Click");
   }
-  if (message == F("click: start"))
+  if (message == "click: start")
   {
     MQTTClient.publish("XBOX360/1/Button/Start", "Click");
   }
-  if (message == F("click: sync"))
+  if (message == "click: sync")
   {
     MQTTClient.publish("XBOX360/1/Button/SYNC", "Click");
   }
 
-  if (message.startsWith(F("battery:")))
+  if (message.find("battery:") == 0)
   {
     MQTTClient.publish("XBOX360/1/Battery", mqttValue);
   }
 
-  if (message.startsWith(F("l2:")))
+  if (message.find("l2:")==0)
   {
     //if time between triggers is greater than 100 milliseconds then send
     if (millis() - leftTriggerTime > 200)
@@ -248,7 +256,7 @@ void sendMQTTmessage(String message)
     MQTTClient.publish("XBOX360/1/Trigger/Left", "0");
   }
 
-  if (message.startsWith(F("r2:")))
+  if (message.find("r2:")==0)
   {
     //if time between triggers is greater than 100 milliseconds then send
     if (millis() - rightTriggerTime > 200)
@@ -278,4 +286,19 @@ void checkMQTTconnection()
       displayMessage("Connected to MQTT server");
     }
   }
+}
+
+//https://stackoverflow.com/questions/216823/whats-the-best-way-to-trim-stdstring
+std::string &ltrim(std::string &str)
+{
+  auto it = std::find_if(str.begin(), str.end(), [](char ch) { return !std::isspace<char>(ch, std::locale::classic()); });
+  str.erase(str.begin(), it);
+  return str;
+}
+
+std::string &rtrim(std::string &str)
+{
+  auto it = std::find_if(str.rbegin(), str.rend(), [](char ch) { return !std::isspace<char>(ch, std::locale::classic()); });
+  str.erase(it.base(), str.end());
+  return str;
 }
