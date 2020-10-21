@@ -63,6 +63,10 @@ A convoluted solution involving an Arduino Uno, USB host controller v1.3 and an 
     <th>Serial Command</th>
     <th>Serial Value</th>
   </tr>
+
+
+  <tr><td>setBigRumbleOn:</td><td>0-3</td><td>XBOX360/1/Battery</td><td>0/3</td></tr>
+
 </table>
 
 

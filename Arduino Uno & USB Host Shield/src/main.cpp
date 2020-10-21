@@ -319,10 +319,12 @@ void loop()
       {
         Serial.println(F("Click: R1"));
       }
+      
       if (Xbox.getButtonClick(XBOX, i))
       {
         Serial.println(F("Click: XBOX"));
       }
+
       if (Xbox.getButtonClick(SYNC, i))
       {
         Serial.println(F("Click: SYNC"));

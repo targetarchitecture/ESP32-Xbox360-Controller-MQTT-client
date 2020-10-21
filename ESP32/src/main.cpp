@@ -8,7 +8,7 @@
 #include <Adafruit_SSD1306.h>
 
 #define LED_BUILTIN 2
-//#define USE_SERIAL
+#define USE_SERIAL
 
 WiFiClient client;
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
