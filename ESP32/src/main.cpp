@@ -7,20 +7,21 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <map>
+#include <ArduinoJSON.h>
 
 #define LED_BUILTIN 2
 #define USE_SERIAL
 //#define SEND_FAIL_SAFES
 
-
 WiFiClient client;
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
 PubSubClient MQTTClient;
 QueueHandle_t serialQueue;
+StaticJsonDocument<850> joystick;
 
 std::map<String, unsigned long> timers;
 unsigned long messageStartTime;
-int serialMessageCount = 0; //874 seems to be it (with OLED display this is down to 402), (770 if not writing to serial and writing to OLED every second)
+int serialMessageCount = 0; 
 int MQTTMessageCount = 0;
 
 void displayMessage(String message);
