@@ -148,7 +148,7 @@ void displayMessage(String message)
   display.display();                                   //https://javl.github.io/image2cpp/
 }
 
-void sendMQTTmessage(String message)
+void sendMQTTmessage_OLD(String message)
 {
   checkMQTTconnection();
 
