@@ -84,7 +84,7 @@ void loop()
       if (millis() - batteryStateTime >= 10000) //test whether the period has elapsed
       {
         batteryStateTime = millis();
-        Serial.print(F("Battery: "));
+        Serial.print(F("Battery:"));
         Serial.println(Xbox.getBatteryLevel(i)); // The battery level in the range 0-3
       }
 

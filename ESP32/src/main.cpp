@@ -11,25 +11,27 @@
 
 #define LED_BUILTIN 2
 #define USE_SERIAL
-//#define SEND_FAIL_SAFES
+#define SEND_FAIL_SAFES
 
 WiFiClient client;
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
 PubSubClient MQTTClient;
-QueueHandle_t serialQueue;
 StaticJsonDocument<850> joystick;
+StaticJsonDocument<850> failSafeValues;
 
-std::map<String, unsigned long> timers;
+//std::map<String, unsigned long> timers;
 unsigned long messageStartTime;
-int serialMessageCount = 0; 
+int serialMessageCount = 0;
 int MQTTMessageCount = 0;
+unsigned long messageLastTime;
 
+//void sendMQTTTask(void *parameter);
 void displayMessage(String message);
-void sendMQTTmessage(String message);
 void updateMessageCount();
 void checkMQTTconnection();
-void dealWithMessage(String message, String value, const char *MQTTTopic, const char *MQTTPayload);
-void dealWithMessage(String message, String value, const char *MQTTTopic, const char *MQTTPayload, int interval);
+void sendMQTTTask(String message);
+void setJoystick(String message, String value, const char *JSONKey,  bool JSONValue);
+void setJoystick(String message, String value, const char *JSONKey, const char *JSONValue);
 
 void setup()
 {
@@ -59,10 +61,8 @@ void setup()
     ESP.restart();
   }
 
-  serialQueue = xQueueCreate(100, sizeof(String));
-
   //WIFI start up
-  displayMessage(std::move("Connecting to WiFi")); // + (String)ssid);
+  displayMessage(std::move("Connecting to WiFi")); 
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
 
@@ -77,7 +77,7 @@ void setup()
   displayMessage(WiFi.localIP().toString());
 
   //set this to be a large enough value to allow an MQTT message containing a 22Kb JPEG to be sent
-  MQTTClient.setBufferSize(30000);
+  MQTTClient.setBufferSize(5000);
 
   displayMessage(std::move("Connecting to MQTT server"));
   MQTTClient.setClient(client);
@@ -89,6 +89,7 @@ void setup()
   Serial.flush();
 
   messageStartTime = millis();
+  messageLastTime = millis();
 }
 
 void loop()
@@ -103,14 +104,39 @@ void loop()
 
     serialMessageCount++;
 
-    xQueueSend(serialQueue, &message, 0);
-
-    sendMQTTmessage(message);
+    sendMQTTTask(std::move(message));
 
     digitalWrite(LED_BUILTIN, LOW);
   }
 
   yield();
+}
+
+void setupFailSafeValues(){
+
+
+  failSafeValues["make"] = "XBOX360";
+  failSafeValues["start"] = false;
+  failSafeValues["pad_up"] = false;
+  failSafeValues["pad_down"] = false;
+  failSafeValues["pad_left"] = false;
+  failSafeValues["pad_right"] = false;
+  failSafeValues["shoulder_left"] = false;
+  failSafeValues["shoulder_right"] = false;
+  failSafeValues["trigger_left"] = false;
+  failSafeValues["trigger_right"] = false;
+  failSafeValues["trigger_left_analog"] = 0;
+  failSafeValues["trigger_right_analog"] = 0;
+  failSafeValues["left_x"] = 0;
+  failSafeValues["left_y"] = 0;
+  failSafeValues["left_x_mapped"] = 0;
+  failSafeValues["left_y_mapped"] = 0;
+  failSafeValues["left"] = false;
+  failSafeValues["right_x"] = 0;
+  failSafeValues["right_y"] = 0;
+  failSafeValues["right_x_mapped"] = 0;
+  failSafeValues["right_y_mapped"] = 0;
+  failSafeValues["right"] = false;
 }
 
 void updateMessageCount()
@@ -132,229 +158,73 @@ void updateMessageCount()
   }
 }
 
-void displayMessage(String message)
+void setJoystick(String message, String value, const char *JSONKey, const char *JSONValue,const char *failsafe)
 {
-  // #if defined(USE_SERIAL)
-  //   Serial.println(message);
-  // #endif
-
-  display.clearDisplay(); //for Clearing the display
-  display.setTextSize(1); // Draw 2X-scale text
-  display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 0);
-  display.print((String)message);
-
-  display.drawBitmap(0, 16, xboxLogo, 128, 48, WHITE); // display.drawBitmap(x position, y position, bitmap data, bitmap width, bitmap height, color)
-  display.display();                                   //https://javl.github.io/image2cpp/
+  if (message == value)
+  {
+  joystick[JSONKey] = JSONValue;
+  }
 }
 
-void sendMQTTmessage_OLD(String message)
+void setJoystick(String message, String value, const char *JSONKey, bool JSONValue,bool failSafe)
 {
-  checkMQTTconnection();
+  if (message == value)
+  {
+  joystick[JSONKey] = JSONValue;
+  }
+}
 
+void sendMQTTTask(String message)
+{
   //deal with the message and make ready for sending
   message.trim();
   message.toUpperCase();
 
-  //auto mqttMessage = message.c_str();
-  auto tempValue = message.substring(message.indexOf(':')+1);
+  auto tempValue = message.substring(message.indexOf(':') + 1);
   tempValue.trim();
   auto mqttValue = tempValue.c_str();
 
-  if (message.startsWith(F("BATTERY:")))
+ setJoystick(message, "U:C", "pad_up", true);
+
+  joystick["make"] = "XBOX360";
+  joystick["start"] = false;
+  //joystick["pad_up"] = false;
+  joystick["pad_down"] = false;
+  joystick["pad_left"] = false;
+  joystick["pad_right"] = false;
+  joystick["shoulder_left"] = false;
+  joystick["shoulder_right"] = false;
+  joystick["trigger_left"] = false;
+  joystick["trigger_right"] = false;
+  joystick["trigger_left_analog"] = 11111111;
+  joystick["trigger_right_analog"] = 11111111;
+  joystick["left_x"] = 11111111;
+  joystick["left_y"] = 11111111;
+  joystick["left_x_mapped"] = 11111111;
+  joystick["left_y_mapped"] = 11111111;
+  joystick["left"] = false;
+  joystick["right_x"] = 11111111;
+  joystick["right_y"] = 11111111;
+  joystick["right_x_mapped"] = 11111111;
+  joystick["right_y_mapped"] = 11111111;
+  joystick["right"] = false;
+
+  //only send MQTT every X milliseconds
+  if (millis() - messageLastTime >= 100)
   {
-    MQTTClient.publish("XBOX360/Battery", mqttValue);
+    messageLastTime = millis();
+
+    String json;
+    serializeJson(joystick, json);
+
+    checkMQTTconnection();
+
+    MQTTClient.publish("XBOX360", json.c_str());
+
+    json.clear();
+
+    MQTTMessageCount++;
   }
-
-  dealWithMessage(message, "U:C", "XBOX360/D-Pad/Up", "Click");
-  dealWithMessage(message, "D:C", "XBOX360/D-Pad/Down", "Click");
-  dealWithMessage(message, "L:C", "XBOX360/D-Pad/Left", "Click");
-  dealWithMessage(message, "R:C", "XBOX360/D-Pad/Right", "Click");
-
-  // dealWithMessage(message, "U:P", "XBOX360/D-Pad/Up", "Press", 200);
-  // dealWithMessage(message, "D:P", "XBOX360/D-Pad/Down", "Press", 200);
-  // dealWithMessage(message, "L:P", "XBOX360/D-Pad/Left", "Press", 200);
-  // dealWithMessage(message, "R:P", "XBOX360/D-Pad/Right", "Press", 200);
-
-  dealWithMessage(message, "L1:C", "XBOX360/Bumper/Left", "Click");
-  dealWithMessage(message, "R1:C", "XBOX360/Bumper/Right", "Click");
-
-  // dealWithMessage(message, "L1:P", "XBOX360/Bumper/Left", "Press", 200);
-  // dealWithMessage(message, "R1:P", "XBOX360/Bumper/Right", "Press", 200);
-
-  dealWithMessage(message, "L3:C", "XBOX360/Stick/Left", "Click");
-  dealWithMessage(message, "R3:C", "XBOX360/Stick/Right", "Click");
-
-  dealWithMessage(message, "A:C", "XBOX360/Button/A", "Click");
-  dealWithMessage(message, "B:C", "XBOX360/Button/B", "Click");
-  dealWithMessage(message, "X:C", "XBOX360/Button/X", "Click");
-  dealWithMessage(message, "Y:C", "XBOX360/Button/Y", "Click");
-
-  // dealWithMessage(message, "A:P", "XBOX360/Button/A", "Press", 200);
-  // dealWithMessage(message, "B:P", "XBOX360/Button/B", "Press", 200);
-  // dealWithMessage(message, "X:P", "XBOX360/Button/X", "Press", 200);
-  // dealWithMessage(message, "Y:P", "XBOX360/Button/Y", "Press", 200);
-
-  dealWithMessage(message, "XBOX:C", "XBOX360/Button/XBOX", "Click");
-  dealWithMessage(message, "BACK:C", "XBOX360/Button/Back", "Click");
-  dealWithMessage(message, "START:C", "XBOX360/Button/Start", "Click");
-  dealWithMessage(message, "SYNC:C", "XBOX360/Button/SYNC", "Click");
-
-  //Trigger pulls
-  if (message.startsWith(F("L2:")))
-  {
-    //if time between triggers is greater than 100 milliseconds then send
-    if (millis() - timers["L2"] > 200)
-    {
-      timers["L2"] = millis();
-
-      long trigger = atol(mqttValue);
-
-      // Serial.print("L2<<<");
-      // Serial.println(trigger);
-
-      auto mappedValue = String(map(trigger, 0, 255, 0, 100));
-
-      MQTTClient.publish("XBOX360/Trigger/Left", mappedValue.c_str());
-      //MQTTClient.publish("XBOX360/Trigger/Left/Raw", mqttValue);
-    }
-  }
-
-  if (message.startsWith(F("R2:")))
-  {
-    //if time between triggers is greater than 100 milliseconds then send
-    if (millis() - timers["R2"] > 200)
-    {
-      timers["R2"] = millis();
-
-      long trigger = atol(mqttValue);
-
-      // Serial.print("R2<<<");
-      // Serial.println(trigger);
-
-      auto mappedValue = String(map(trigger, 0, 255, 0, 100));
-
-      MQTTClient.publish("XBOX360/Trigger/Right", mappedValue.c_str());
-      //MQTTClient.publish("XBOX360/Trigger/Right/Raw", mqttValue);
-    }
-  }
-
-  //TRIGGER FAIL SAFES - if time between triggers is greater than 500 milliseconds then send zero
-  #if defined(SEND_FAIL_SAFES)
-  if (millis() - timers["L2"] > 500)
-  {
-    timers["L2"] = millis() + random(1, 100);
-    MQTTClient.publish("XBOX360/Trigger/Left", "0");
-  }
-  if (millis() - timers["R2"] > 500)
-  {
-    timers["R2"] = millis() + random(1, 100);
-    MQTTClient.publish("XBOX360/Trigger/Right", "0");
-  }
-  #endif
-
-  //Left Hat X&Y
-  if (message.startsWith(F("LHX:")))
-  {
-    //if time between triggers is greater than 200 milliseconds then send
-    if (millis() - timers["LHX"] > 200)
-    {
-      timers["LHX"] = millis();
-
-      long x = atol(mqttValue);
-
-      // Serial.print("LHX<<<");
-      // Serial.println(x);
-
-      auto mappedValue = String(map(x, -32768, 32767, -100, 100));
-
-      MQTTClient.publish("XBOX360/Stick/Left/X", mappedValue.c_str());
-      //MQTTClient.publish("XBOX360/Stick/Left/X/Raw", mqttValue);
-    }
-  }
-  if (message.startsWith(F("LHY:")))
-  {
-    //if time between triggers is greater than 200 milliseconds then send
-    if (millis() - timers["LHY"] > 300)
-    {
-      timers["LHY"] = millis();
-
-      long y = atol(mqttValue);
-
-      // Serial.print("LHY<<<");
-      // Serial.println(y);
-
-      auto mappedValue = String(map(y, -32768, 32767, -100, 100));
-
-      MQTTClient.publish("XBOX360/Stick/Left/Y", mappedValue.c_str());
-      //MQTTClient.publish("XBOX360/Stick/Left/Y/Raw", mqttValue);
-    }
-  }
-  //HAT FAIL SAFES
-  #if defined(SEND_FAIL_SAFES)
-  if (millis() - timers["LHX"] > 500)
-  {
-    timers["LHX"] = millis() + random(1, 100);
-    MQTTClient.publish("XBOX360/Stick/Left/X", "0");
-  }
-  if (millis() - timers["LHY"] > 500)
-  {
-    timers["LHY"] = millis() + random(1, 100);
-    MQTTClient.publish("XBOX360/Stick/Left/Y", "0");
-  }
-  #endif
-
-  //Right Hat X&Y
-  if (message.startsWith(F("RHX:")))
-  {
-    //if time between triggers is greater than 200 milliseconds then send
-    if (millis() - timers["RHX"] > 200)
-    {
-      timers["RHX"] = millis();
-
-      long x = atol(mqttValue);
-
-      // Serial.print("RHX<<<");
-      // Serial.println(x);
-
-      auto mappedValue = String(map(x, -32768, 32767, -100, 100));
-
-      MQTTClient.publish("XBOX360/Stick/Right/X", mappedValue.c_str());
-      //MQTTClient.publish("XBOX360/Stick/Right/X/Raw", mqttValue);
-    }
-  }
-  if (message.startsWith(F("RHY:")))
-  {
-    //if time between triggers is greater than 200 milliseconds then send
-    if (millis() - timers["RHY"] > 200)
-    {
-      timers["RHY"] = millis();
-
-      long y = atol(mqttValue);
-
-      // Serial.print("RHY<<<");
-      // Serial.println(y);
-
-      auto mappedValue = String(map(y, -32768, 32767, -100, 100));
-
-      MQTTClient.publish("XBOX360/Stick/Right/Y", mappedValue.c_str());
-      //MQTTClient.publish("XBOX360/Stick/Right/Y/Raw", mqttValue);
-    }
-  }
-
-  //HAT FAIL SAFES
-  #if defined(SEND_FAIL_SAFES)
-  if (millis() - timers["RHX"] > 500)
-  {
-    timers["RHX"] = millis() + random(1, 100);
-    MQTTClient.publish("XBOX360/Stick/Right/X", "0");
-  }
-  if (millis() - timers["RHY"] > 500)
-  {
-    timers["RHY"] = millis() + random(1, 100);
-    MQTTClient.publish("XBOX360/Stick/Right/Y", "0");
-  }
-  #endif
 }
 
 void checkMQTTconnection()
@@ -368,34 +238,16 @@ void checkMQTTconnection()
   }
 }
 
-void dealWithMessage(String message, String value, const char *MQTTTopic, const char *MQTTPayload)
+void displayMessage(String message)
 {
-  if (message == value)
-  {
-    // Serial.print(MQTTTopic);
-    // Serial.println(MQTTPayload);
+  display.clearDisplay(); //for Clearing the display
+  display.setTextSize(1); // Draw 2X-scale text
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(0, 0);
+  display.print(message);
 
-    MQTTClient.publish(MQTTTopic, MQTTPayload);
-
-    MQTTMessageCount++;
-  }
+  //https://javl.github.io/image2cpp/
+  display.drawBitmap(0, 16, xboxLogo, 128, 48, WHITE); // display.drawBitmap(x position, y position, bitmap data, bitmap width, bitmap height, color)
+  display.display();
 }
 
-void dealWithMessage(String message, String value, const char *MQTTTopic, const char *MQTTPayload, int interval)
-{
-  if (message == value)
-  { //if time between triggers is greater than interval (milliseconds) then send
-    if (millis() - timers[value] > interval)
-    {
-      timers[value] = millis();
-
-      Serial.print(message);
-      Serial.print(":");
-      Serial.println(value);
-
-      MQTTClient.publish(MQTTTopic, MQTTPayload);
-
-      MQTTMessageCount++;
-    }
-  }
-}
