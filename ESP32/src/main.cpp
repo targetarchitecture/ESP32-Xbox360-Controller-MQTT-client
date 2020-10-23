@@ -18,20 +18,23 @@ Adafruit_SSD1306 display(128, 64, &Wire, -1);
 PubSubClient MQTTClient;
 StaticJsonDocument<850> joystick;
 StaticJsonDocument<850> failSafeValues;
+std::map<String, unsigned long> failSafeTimes;
 
-//std::map<String, unsigned long> timers;
 unsigned long messageStartTime;
 int serialMessageCount = 0;
 int MQTTMessageCount = 0;
 unsigned long messageLastTime;
 
-//void sendMQTTTask(void *parameter);
+//declare functions
 void displayMessage(String message);
 void updateMessageCount();
 void checkMQTTconnection();
 void sendMQTTTask(String message);
-void setJoystick(String message, String value, const char *JSONKey,  bool JSONValue);
+void setJoystick(String message, String value, const char *JSONKey, bool JSONValue);
 void setJoystick(String message, String value, const char *JSONKey, const char *JSONValue);
+void setJoystick(String message, String value, const char *JSONKey, long JSONValue);
+void setupFailSafeValues();
+void checkFailSafe();
 
 void setup()
 {
@@ -62,7 +65,7 @@ void setup()
   }
 
   //WIFI start up
-  displayMessage(std::move("Connecting to WiFi")); 
+  displayMessage(std::move("Connecting to WiFi"));
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
 
@@ -88,6 +91,12 @@ void setup()
 
   Serial.flush();
 
+  //set some default values
+  joystick["make"] = "XBOX360";
+
+  //set fail safe values
+  setupFailSafeValues();
+
   messageStartTime = millis();
   messageLastTime = millis();
 }
@@ -109,13 +118,14 @@ void loop()
     digitalWrite(LED_BUILTIN, LOW);
   }
 
+  //check fail safe
+  checkFailSafe();
+
   yield();
 }
 
-void setupFailSafeValues(){
-
-
-  failSafeValues["make"] = "XBOX360";
+void setupFailSafeValues()
+{
   failSafeValues["start"] = false;
   failSafeValues["pad_up"] = false;
   failSafeValues["pad_down"] = false;
@@ -158,19 +168,33 @@ void updateMessageCount()
   }
 }
 
-void setJoystick(String message, String value, const char *JSONKey, const char *JSONValue,const char *failsafe)
+void setJoystick(String message, String value, const char *JSONKey, const char *JSONValue)
 {
   if (message == value)
   {
-  joystick[JSONKey] = JSONValue;
+    joystick[JSONKey] = JSONValue;
+
+    failSafeTimes.insert(std::pair<String, unsigned long>(JSONKey, millis() + 500));
   }
 }
 
-void setJoystick(String message, String value, const char *JSONKey, bool JSONValue,bool failSafe)
+void setJoystick(String message, String value, const char *JSONKey, bool JSONValue)
 {
   if (message == value)
   {
-  joystick[JSONKey] = JSONValue;
+    joystick[JSONKey] = JSONValue;
+
+    failSafeTimes.insert(std::pair<String, unsigned long>(JSONKey, millis() + 500));
+  }
+}
+
+void setJoystick(String message, String value, const char *JSONKey, long JSONValue)
+{
+  if (message == value)
+  {
+    joystick[JSONKey] = JSONValue;
+
+    failSafeTimes.insert(std::pair<String, unsigned long>(JSONKey, millis() + 500));
   }
 }
 
@@ -184,30 +208,27 @@ void sendMQTTTask(String message)
   tempValue.trim();
   auto mqttValue = tempValue.c_str();
 
- setJoystick(message, "U:C", "pad_up", true);
-
-  joystick["make"] = "XBOX360";
-  joystick["start"] = false;
-  //joystick["pad_up"] = false;
-  joystick["pad_down"] = false;
-  joystick["pad_left"] = false;
-  joystick["pad_right"] = false;
-  joystick["shoulder_left"] = false;
-  joystick["shoulder_right"] = false;
-  joystick["trigger_left"] = false;
-  joystick["trigger_right"] = false;
-  joystick["trigger_left_analog"] = 11111111;
-  joystick["trigger_right_analog"] = 11111111;
-  joystick["left_x"] = 11111111;
-  joystick["left_y"] = 11111111;
-  joystick["left_x_mapped"] = 11111111;
-  joystick["left_y_mapped"] = 11111111;
-  joystick["left"] = false;
-  joystick["right_x"] = 11111111;
-  joystick["right_y"] = 11111111;
-  joystick["right_x_mapped"] = 11111111;
-  joystick["right_y_mapped"] = 11111111;
-  joystick["right"] = false;
+  setJoystick(message, "U:C", "pad_up", true);
+  setJoystick(message, "U:C", "pad_down", true);
+  setJoystick(message, "U:C", "pad_left", true);
+  setJoystick(message, "U:C", "pad_right", true);
+  setJoystick(message, "U:C", "start", true);
+  setJoystick(message, "U:C", "shoulder_left", true);
+  setJoystick(message, "U:C", "shoulder_right", true);
+  setJoystick(message, "U:C", "trigger_left", true);
+  setJoystick(message, "U:C", "trigger_right", true);
+  setJoystick(message, "U:C", "trigger_left_analog", true);
+  setJoystick(message, "U:C", "trigger_right_analog", true);
+  setJoystick(message, "U:C", "left_x", true);
+  setJoystick(message, "U:C", "left_y", true);
+  setJoystick(message, "U:C", "left_x_mapped", true);
+  setJoystick(message, "U:C", "left_y_mapped", true);
+  setJoystick(message, "U:C", "left", true);
+  setJoystick(message, "U:C", "right_x", true);
+  setJoystick(message, "U:C", "right_y", true);
+  setJoystick(message, "U:C", "right_x_mapped", true);
+  setJoystick(message, "U:C", "right_y_mapped", true);
+  setJoystick(message, "U:C", "right", true);
 
   //only send MQTT every X milliseconds
   if (millis() - messageLastTime >= 100)
@@ -225,6 +246,35 @@ void sendMQTTTask(String message)
 
     MQTTMessageCount++;
   }
+}
+
+void checkFailSafe()
+{
+  std::map<String, unsigned long>::iterator failsafe;
+
+  for (failsafe = failSafeTimes.begin(); failsafe != failSafeTimes.end(); ++failsafe)
+  {
+    unsigned long failSafeTime = failsafe->second;
+    String JSONKey = failsafe->first;
+
+     Serial.print(JSONKey);
+     Serial.print(":");
+     Serial.print(failSafeTime);
+     Serial.print(":");
+     Serial.println(millis());
+
+    if (failSafeTime > millis())
+    {   
+      joystick[JSONKey] = failSafeValues[JSONKey];
+
+      failSafeTimes.erase(failSafeTimes.begin(), failSafeTimes.find(JSONKey));
+    }
+  }
+
+  //check to see if a change was made
+  // checkMQTTconnection();
+
+  // MQTTClient.publish("XBOX360", json.c_str());
 }
 
 void checkMQTTconnection()
@@ -250,4 +300,3 @@ void displayMessage(String message)
   display.drawBitmap(0, 16, xboxLogo, 128, 48, WHITE); // display.drawBitmap(x position, y position, bitmap data, bitmap width, bitmap height, color)
   display.display();
 }
-
