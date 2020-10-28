@@ -52,7 +52,8 @@ void setup()
   Serial.flush();
 #endif
 
-  Serial2.begin(115200);
+//baud speed of Arduino Uno sketch
+  Serial2.begin(14400);
 
   // Init I2C bus & OLED
   Wire.begin();
