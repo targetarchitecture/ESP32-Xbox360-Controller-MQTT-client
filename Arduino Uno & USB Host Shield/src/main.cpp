@@ -18,6 +18,8 @@ bool ledOnState = false;
 unsigned long batteryStateTime;
 unsigned long connectionStateTime;
 unsigned long controllerStateTime;
+unsigned long baudRate = 14400; // 115200;
+
 
 void setup()
 {
@@ -25,7 +27,7 @@ void setup()
   wdt_disable();
 
   //start USB
-  Serial.begin(115200);
+  Serial.begin(baudRate);
 
   //start two second watchdog timer
   wdt_enable(WDTO_2S);

@@ -252,29 +252,36 @@ void checkFailSafe()
 {
   std::map<String, unsigned long>::iterator failsafe;
 
+    Serial.print("Size:");
+    Serial.println(failSafeTimes.size());
+
   for (failsafe = failSafeTimes.begin(); failsafe != failSafeTimes.end(); ++failsafe)
   {
     unsigned long failSafeTime = failsafe->second;
     String JSONKey = failsafe->first;
 
-     Serial.print(JSONKey);
-     Serial.print(":");
-     Serial.print(failSafeTime);
-     Serial.print(":");
-     Serial.println(millis());
+    Serial.print(JSONKey);
+    Serial.print(":");
+    Serial.print(failSafeTime);
+    Serial.print(":");
+    Serial.println(millis());
 
-    if (failSafeTime > millis())
-    {   
+    if ((failSafeTime != 0) && (failSafeTime > millis()))
+    {
       joystick[JSONKey] = failSafeValues[JSONKey];
 
-      failSafeTimes.erase(failSafeTimes.begin(), failSafeTimes.find(JSONKey));
+      failsafe->second = 0;
     }
   }
 
-  //check to see if a change was made
-  // checkMQTTconnection();
+  String json;
+  serializeJson(joystick, json);
 
-  // MQTTClient.publish("XBOX360", json.c_str());
+  checkMQTTconnection();
+
+  MQTTClient.publish("XBOX360", json.c_str());
+
+  json.clear();
 }
 
 void checkMQTTconnection()
