@@ -12,34 +12,36 @@
 #define LED_BUILTIN 2
 #define USE_SERIAL
 #define SEND_FAIL_SAFES
+#define FAIL_SAFE_TIME_MS 500
 
 WiFiClient client;
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
 PubSubClient MQTTClient;
 StaticJsonDocument<850> joystick;
-StaticJsonDocument<850> failSafeValues;
-std::map<String, unsigned long> failSafeTimes;
+// typedef std::pair<String, long> failsafeValue;
+// std::map<unsigned long, failsafeValue> failSafeTimes;
 
-unsigned long messageStartTime;
+typedef std::pair<unsigned long, long> failsafeValue;
+std::map<String, failsafeValue> failSafeTimes;
+
+unsigned long messageStartTime = millis();
 int serialMessageCount = 0;
 int MQTTMessageCount = 0;
-unsigned long messageLastTime;
+unsigned long lastMessageSentTime = millis();
 
 //declare functions
 void displayMessage(String message);
 void updateMessageCount();
 void checkMQTTconnection();
 void sendMQTTTask(String message);
-void setJoystick(String message, String value, const char *JSONKey, bool JSONValue);
-void setJoystick(String message, String value, const char *JSONKey, const char *JSONValue);
-void setJoystick(String message, String value, const char *JSONKey, long JSONValue);
-void setupFailSafeValues();
 void checkFailSafe();
+void dealWithButtonClick(const char *JSONKey, bool JSONValue);
+void setJoystick(String message, const char *JSONKey, const char *JSONKeyMapped, long lowestValue, long highestValue);
 
 void setup()
 {
-  pinMode(23, OUTPUT);
-  digitalWrite(23, HIGH);
+  // pinMode(23, OUTPUT);
+  // digitalWrite(23, HIGH);
 
   pinMode(LED_BUILTIN, OUTPUT);
 
@@ -52,7 +54,7 @@ void setup()
   Serial.flush();
 #endif
 
-//baud speed of Arduino Uno sketch
+  //baud speed of Arduino Uno sketch
   Serial2.begin(14400);
 
   // Init I2C bus & OLED
@@ -80,7 +82,7 @@ void setup()
   displayMessage(std::move("Connected! IP address: "));
   displayMessage(WiFi.localIP().toString());
 
-  //set this to be a large enough value to allow an MQTT message containing a 22Kb JPEG to be sent
+  //set this to be a large enough value to allow a large MQTT message
   MQTTClient.setBufferSize(5000);
 
   displayMessage(std::move("Connecting to MQTT server"));
@@ -90,16 +92,8 @@ void setup()
   displayMessage(std::move("connect mqtt..."));
   checkMQTTconnection();
 
-  Serial.flush();
-
   //set some default values
   joystick["make"] = "XBOX360";
-
-  //set fail safe values
-  setupFailSafeValues();
-
-  messageStartTime = millis();
-  messageLastTime = millis();
 }
 
 void loop()
@@ -125,31 +119,6 @@ void loop()
   yield();
 }
 
-void setupFailSafeValues()
-{
-  failSafeValues["start"] = false;
-  failSafeValues["pad_up"] = false;
-  failSafeValues["pad_down"] = false;
-  failSafeValues["pad_left"] = false;
-  failSafeValues["pad_right"] = false;
-  failSafeValues["shoulder_left"] = false;
-  failSafeValues["shoulder_right"] = false;
-  failSafeValues["trigger_left"] = false;
-  failSafeValues["trigger_right"] = false;
-  failSafeValues["trigger_left_analog"] = 0;
-  failSafeValues["trigger_right_analog"] = 0;
-  failSafeValues["left_x"] = 0;
-  failSafeValues["left_y"] = 0;
-  failSafeValues["left_x_mapped"] = 0;
-  failSafeValues["left_y_mapped"] = 0;
-  failSafeValues["left"] = false;
-  failSafeValues["right_x"] = 0;
-  failSafeValues["right_y"] = 0;
-  failSafeValues["right_x_mapped"] = 0;
-  failSafeValues["right_y_mapped"] = 0;
-  failSafeValues["right"] = false;
-}
-
 void updateMessageCount()
 {
   //send reciever state every one second
@@ -169,33 +138,38 @@ void updateMessageCount()
   }
 }
 
-void setJoystick(String message, String value, const char *JSONKey, const char *JSONValue)
+void dealWithButtonClick(const char *JSONKey, bool JSONValue)
 {
-  if (message == value)
-  {
-    joystick[JSONKey] = JSONValue;
+  joystick[JSONKey] = JSONValue;
 
-    failSafeTimes.insert(std::pair<String, unsigned long>(JSONKey, millis() + 500));
-  }
+  failSafeTimes[millis() + FAIL_SAFE_TIME_MS] = std::make_pair(JSONKey, false);
 }
 
-void setJoystick(String message, String value, const char *JSONKey, bool JSONValue)
+void setJoystick(String message, const char *JSONKey, const char *JSONKeyMapped, long lowestValue, long highestValue)
 {
-  if (message == value)
-  {
-    joystick[JSONKey] = JSONValue;
+  auto tempValue = message.substring(message.indexOf(':') + 1);
+  tempValue.trim();
+  auto mqttValue = tempValue.c_str();
 
-    failSafeTimes.insert(std::pair<String, unsigned long>(JSONKey, millis() + 500));
-  }
+  long analogValue = atol(mqttValue);
+
+  auto mappedValue = String(map(analogValue, lowestValue, highestValue, 0, 100));
+
+  joystick[JSONKey] = analogValue;
+  joystick[JSONKeyMapped] = mappedValue;
+
+  failSafeTimes[millis() + FAIL_SAFE_TIME_MS] = std::make_pair(JSONKey, 0);
+  failSafeTimes[millis() + FAIL_SAFE_TIME_MS] = std::make_pair(JSONKeyMapped, 0);
 }
 
-void setJoystick(String message, String value, const char *JSONKey, long JSONValue)
+void setValue(String message, String value, const char *JSONKey)
 {
-  if (message == value)
+  if (message.startsWith(value))
   {
-    joystick[JSONKey] = JSONValue;
+    auto tempValue = message.substring(message.indexOf(':') + 1);
+    tempValue.trim();
 
-    failSafeTimes.insert(std::pair<String, unsigned long>(JSONKey, millis() + 500));
+    joystick[JSONKey] = tempValue;
   }
 }
 
@@ -205,36 +179,103 @@ void sendMQTTTask(String message)
   message.trim();
   message.toUpperCase();
 
-  auto tempValue = message.substring(message.indexOf(':') + 1);
-  tempValue.trim();
-  auto mqttValue = tempValue.c_str();
-
-  setJoystick(message, "U:C", "pad_up", true);
-  setJoystick(message, "U:C", "pad_down", true);
-  setJoystick(message, "U:C", "pad_left", true);
-  setJoystick(message, "U:C", "pad_right", true);
-  setJoystick(message, "U:C", "start", true);
-  setJoystick(message, "U:C", "shoulder_left", true);
-  setJoystick(message, "U:C", "shoulder_right", true);
-  setJoystick(message, "U:C", "trigger_left", true);
-  setJoystick(message, "U:C", "trigger_right", true);
-  setJoystick(message, "U:C", "trigger_left_analog", true);
-  setJoystick(message, "U:C", "trigger_right_analog", true);
-  setJoystick(message, "U:C", "left_x", true);
-  setJoystick(message, "U:C", "left_y", true);
-  setJoystick(message, "U:C", "left_x_mapped", true);
-  setJoystick(message, "U:C", "left_y_mapped", true);
-  setJoystick(message, "U:C", "left", true);
-  setJoystick(message, "U:C", "right_x", true);
-  setJoystick(message, "U:C", "right_y", true);
-  setJoystick(message, "U:C", "right_x_mapped", true);
-  setJoystick(message, "U:C", "right_y_mapped", true);
-  setJoystick(message, "U:C", "right", true);
+  if (message == "BATTERY:")
+  {
+    setValue(message, "BATTERY:", "battery");
+  }
+  else if (message == "A:C")
+  {
+    dealWithButtonClick("button_a", true);
+  }
+  else if (message == "B:C")
+  {
+    dealWithButtonClick("button_b", true);
+  }
+  else if (message == "X:C")
+  {
+    dealWithButtonClick("button_x", true);
+  }
+  else if (message == "A:C")
+  {
+    dealWithButtonClick("button_y", true);
+  }
+  else if (message == "U:C")
+  {
+    dealWithButtonClick("pad_up", true);
+  }
+  else if (message == "D:C")
+  {
+    dealWithButtonClick("pad_down", true);
+  }
+  else if (message == "L:C")
+  {
+    dealWithButtonClick("pad_left", true);
+  }
+  else if (message == "R:C")
+  {
+    dealWithButtonClick("pad_right", true);
+  }
+  else if (message == "START:C")
+  {
+    dealWithButtonClick("start", true);
+  }
+  else if (message == "BACK:C")
+  {
+    dealWithButtonClick("back", true);
+  }
+  else if (message == "XBOX:C")
+  {
+    dealWithButtonClick("xbox", true);
+  }
+  else if (message == "SYNC:C")
+  {
+    dealWithButtonClick("sync", true);
+  }
+  else if (message == "L1:C")
+  {
+    dealWithButtonClick("shoulder_left", true);
+  }
+  else if (message == "R2:C")
+  {
+    dealWithButtonClick("shoulder_right", true);
+  }
+  else if (message == "L3:C")
+  {
+    dealWithButtonClick("left", true);
+  }
+  else if (message == "R3:C")
+  {
+    dealWithButtonClick("right", true);
+  }
+  else if (message.startsWith("L2:"))
+  {
+    setJoystick(message, "trigger_left", "trigger_left_mapped", 0, 255);
+  }
+  else if (message.startsWith("R2:"))
+  {
+    setJoystick(message, "trigger_right", "trigger_right_mapped", 0, 255);
+  }
+  else if (message.startsWith("LHX:"))
+  {
+    setJoystick(message, "left_x", "left_x_mapped", -32768, 32767);
+  }
+  else if (message.startsWith("LHY:"))
+  {
+    setJoystick(message, "left_y", "left_y_mapped", -32768, 32767);
+  }
+  else if (message.startsWith("RHX:"))
+  {
+    setJoystick(message, "right_x", "right_x_mapped", -32768, 32767);
+  }
+  else if (message.startsWith("RHY:"))
+  {
+    setJoystick(message, "right_y", "right_y_mapped", -32768, 32767);
+  }
 
   //only send MQTT every X milliseconds
-  if (millis() - messageLastTime >= 100)
+  if (millis() - lastMessageSentTime >= 100)
   {
-    messageLastTime = millis();
+    lastMessageSentTime = millis();
 
     String json;
     serializeJson(joystick, json);
@@ -251,38 +292,31 @@ void sendMQTTTask(String message)
 
 void checkFailSafe()
 {
-  std::map<String, unsigned long>::iterator failsafe;
+  std::map<unsigned long, failsafeValue>::iterator i = failSafeTimes.begin();
 
-    Serial.print("Size:");
-    Serial.println(failSafeTimes.size());
-
-  for (failsafe = failSafeTimes.begin(); failsafe != failSafeTimes.end(); ++failsafe)
+  while (i != failSafeTimes.end())
   {
-    unsigned long failSafeTime = failsafe->second;
-    String JSONKey = failsafe->first;
+    unsigned long failSafeTime = i->first;
 
-    Serial.print(JSONKey);
-    Serial.print(":");
-    Serial.print(failSafeTime);
-    Serial.print(":");
-    Serial.println(millis());
-
-    if ((failSafeTime != 0) && (failSafeTime > millis()))
+    if (millis() >= failSafeTime  )
     {
-      joystick[JSONKey] = failSafeValues[JSONKey];
+      failsafeValue values = i->second;
 
-      failsafe->second = 0;
+      joystick[values.first] = values.second;
+
+      Serial.print(values.first);
+      Serial.print(":");
+      Serial.print(failSafeTime);
+      Serial.print(":");
+      Serial.println(millis());
+
+      i = failSafeTimes.erase(i);
+    }
+    else
+    {
+      ++i;
     }
   }
-
-  String json;
-  serializeJson(joystick, json);
-
-  checkMQTTconnection();
-
-  MQTTClient.publish("XBOX360", json.c_str());
-
-  json.clear();
 }
 
 void checkMQTTconnection()
