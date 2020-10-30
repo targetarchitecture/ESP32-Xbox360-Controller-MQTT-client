@@ -129,6 +129,8 @@ void updateMessageCount()
     msg += "\n";
     msg += "MQTT RX: ";
     msg += (String)MQTTMessageCount;
+    msg += "FSAFE: ";
+    msg += (String)failSafeTimes.size();
 
     displayMessage(std::move(msg));
 
@@ -142,7 +144,9 @@ void dealWithButtonClick(const char *JSONKey, bool JSONValue)
 {
   joystick[JSONKey] = JSONValue;
 
-  failSafeTimes[millis() + FAIL_SAFE_TIME_MS] = std::make_pair(JSONKey, false);
+  failSafeTimes[JSONKey] = std::make_pair(millis() + FAIL_SAFE_TIME_MS, false);
+
+  //Serial.println(failSafeTimes.size());
 }
 
 void setJoystick(String message, const char *JSONKey, const char *JSONKeyMapped, long lowestValue, long highestValue)
@@ -158,8 +162,10 @@ void setJoystick(String message, const char *JSONKey, const char *JSONKeyMapped,
   joystick[JSONKey] = analogValue;
   joystick[JSONKeyMapped] = mappedValue;
 
-  failSafeTimes[millis() + FAIL_SAFE_TIME_MS] = std::make_pair(JSONKey, 0);
-  failSafeTimes[millis() + FAIL_SAFE_TIME_MS] = std::make_pair(JSONKeyMapped, 0);
+  failSafeTimes[JSONKey] = std::make_pair(millis() + FAIL_SAFE_TIME_MS, 0);
+  failSafeTimes[JSONKeyMapped] = std::make_pair(millis() + FAIL_SAFE_TIME_MS, 0);
+
+  //Serial.println(failSafeTimes.size());
 }
 
 void setValue(String message, String value, const char *JSONKey)
@@ -292,23 +298,22 @@ void sendMQTTTask(String message)
 
 void checkFailSafe()
 {
-  std::map<unsigned long, failsafeValue>::iterator i = failSafeTimes.begin();
+  std::map<String, failsafeValue>::iterator i = failSafeTimes.begin();
 
   while (i != failSafeTimes.end())
   {
-    unsigned long failSafeTime = i->first;
+    failsafeValue values = i->second;
+    unsigned long failSafeTime = values.first;
 
-    if (millis() >= failSafeTime  )
+    Serial.print(i->first);
+    Serial.print(":");
+    Serial.print(failSafeTime);
+    Serial.print(":");
+    Serial.println(millis());
+
+    if (millis() >= failSafeTime)
     {
-      failsafeValue values = i->second;
-
-      joystick[values.first] = values.second;
-
-      Serial.print(values.first);
-      Serial.print(":");
-      Serial.print(failSafeTime);
-      Serial.print(":");
-      Serial.println(millis());
+      joystick[i->first] = values.second;
 
       i = failSafeTimes.erase(i);
     }
@@ -317,6 +322,8 @@ void checkFailSafe()
       ++i;
     }
   }
+
+  //Serial.println(failSafeTimes.size());
 }
 
 void checkMQTTconnection()
