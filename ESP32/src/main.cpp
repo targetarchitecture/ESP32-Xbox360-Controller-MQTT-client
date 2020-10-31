@@ -18,6 +18,7 @@ WiFiClient client;
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
 PubSubClient MQTTClient;
 StaticJsonDocument<850> joystick;
+StaticJsonDocument<850> failSafeValues;
 // typedef std::pair<String, long> failsafeValue;
 // std::map<unsigned long, failsafeValue> failSafeTimes;
 
@@ -27,7 +28,7 @@ std::map<String, failsafeValue> failSafeTimes;
 unsigned long messageStartTime = millis();
 int serialMessageCount = 0;
 int MQTTMessageCount = 0;
-unsigned long lastMessageSentTime = millis();
+unsigned long lastMQTTMessageSentTime = millis();
 
 //declare functions
 void displayMessage(String message);
@@ -40,9 +41,6 @@ void setJoystick(String message, const char *JSONKey, const char *JSONKeyMapped,
 
 void setup()
 {
-  // pinMode(23, OUTPUT);
-  // digitalWrite(23, HIGH);
-
   pinMode(LED_BUILTIN, OUTPUT);
 
   //turn off bluetooth
@@ -129,7 +127,7 @@ void updateMessageCount()
     msg += "\n";
     msg += "MQTT RX: ";
     msg += (String)MQTTMessageCount;
-    msg += "FSAFE: ";
+    msg += " FSAFE: ";
     msg += (String)failSafeTimes.size();
 
     displayMessage(std::move(msg));
@@ -279,9 +277,9 @@ void sendMQTTTask(String message)
   }
 
   //only send MQTT every X milliseconds
-  if (millis() - lastMessageSentTime >= 100)
+  if (millis() - lastMQTTMessageSentTime >= 100)
   {
-    lastMessageSentTime = millis();
+    lastMQTTMessageSentTime = millis();
 
     String json;
     serializeJson(joystick, json);
@@ -305,11 +303,11 @@ void checkFailSafe()
     failsafeValue values = i->second;
     unsigned long failSafeTime = values.first;
 
-    Serial.print(i->first);
-    Serial.print(":");
-    Serial.print(failSafeTime);
-    Serial.print(":");
-    Serial.println(millis());
+    // Serial.print(i->first);
+    // Serial.print(":");
+    // Serial.print(failSafeTime);
+    // Serial.print(":");
+    // Serial.println(millis());
 
     if (millis() >= failSafeTime)
     {
@@ -348,4 +346,37 @@ void displayMessage(String message)
   //https://javl.github.io/image2cpp/
   display.drawBitmap(0, 16, xboxLogo, 128, 48, WHITE); // display.drawBitmap(x position, y position, bitmap data, bitmap width, bitmap height, color)
   display.display();
+}
+
+
+void setupFailSafeValues()
+{
+  failSafeValues["start"] = false;
+  failSafeValues["pad_up"] = false;
+  failSafeValues["pad_down"] = false;
+  failSafeValues["pad_left"] = false;
+  failSafeValues["pad_right"] = false;
+  failSafeValues["shoulder_left"] = false;
+  failSafeValues["shoulder_right"] = false;
+  failSafeValues["trigger_left"] = false;
+  failSafeValues["trigger_right"] = false;
+  failSafeValues["trigger_left_analog"] = 0;
+  failSafeValues["trigger_right_analog"] = 0;
+  failSafeValues["left_x"] = 0;
+  failSafeValues["left_y"] = 0;
+  failSafeValues["left_x_mapped"] = 0;
+  failSafeValues["left_y_mapped"] = 0;
+  failSafeValues["left"] = false;
+  failSafeValues["right_x"] = 0;
+  failSafeValues["right_y"] = 0;
+  failSafeValues["right_x_mapped"] = 0;
+  failSafeValues["right_y_mapped"] = 0;
+  failSafeValues["right"] = false;
+
+
+  button_a
+  button_b
+  button_x
+  button_y
+  
 }
