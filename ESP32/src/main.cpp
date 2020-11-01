@@ -11,7 +11,6 @@
 
 #define LED_BUILTIN 2
 #define USE_SERIAL
-#define SEND_FAIL_SAFES
 #define FAIL_SAFE_TIME_MS 500
 
 WiFiClient client;
@@ -19,25 +18,24 @@ Adafruit_SSD1306 display(128, 64, &Wire, -1);
 PubSubClient MQTTClient;
 StaticJsonDocument<850> joystick;
 StaticJsonDocument<850> failSafeValues;
-// typedef std::pair<String, long> failsafeValue;
-// std::map<unsigned long, failsafeValue> failSafeTimes;
+std::map<String, unsigned long> joystickActionTimes;
 
-typedef std::pair<unsigned long, long> failsafeValue;
-std::map<String, failsafeValue> failSafeTimes;
-
-unsigned long messageStartTime = millis();
+unsigned long displayMessageStartTime = millis();
 int serialMessageCount = 0;
 int MQTTMessageCount = 0;
 unsigned long lastMQTTMessageSentTime = millis();
+unsigned long lastMessageReceivedTime = millis();
 
 //declare functions
 void displayMessage(String message);
 void updateMessageCount();
 void checkMQTTconnection();
-void sendMQTTTask(String message);
+void sendMQTTmessage();
+void dealWithReceivedMessage(String message);
 void checkFailSafe();
 void dealWithButtonClick(const char *JSONKey, bool JSONValue);
 void setJoystick(String message, const char *JSONKey, const char *JSONKeyMapped, long lowestValue, long highestValue);
+void setupFailSafeValues();
 
 void setup()
 {
@@ -53,7 +51,7 @@ void setup()
 #endif
 
   //baud speed of Arduino Uno sketch
-  Serial2.begin(14400);
+  Serial2.begin(38400);
 
   // Init I2C bus & OLED
   Wire.begin();
@@ -90,6 +88,9 @@ void setup()
   displayMessage(std::move("connect mqtt..."));
   checkMQTTconnection();
 
+  //set up failsafe values & set joystick defaults
+  setupFailSafeValues();
+
   //set some default values
   joystick["make"] = "XBOX360";
 }
@@ -106,7 +107,9 @@ void loop()
 
     serialMessageCount++;
 
-    sendMQTTTask(std::move(message));
+    lastMessageReceivedTime = millis();
+
+    dealWithReceivedMessage(std::move(message));
 
     digitalWrite(LED_BUILTIN, LOW);
   }
@@ -114,13 +117,25 @@ void loop()
   //check fail safe
   checkFailSafe();
 
+  //send fail safe if no message has been recieved for 1 second
+  if (millis() - lastMessageReceivedTime >= 1000)
+  {
+    lastMessageReceivedTime = millis();
+
+    sendMQTTmessage();
+
+    //try to tidy up memory
+    joystick.garbageCollect();
+  }
+
+  //give RTOS some breathing space
   yield();
 }
 
 void updateMessageCount()
 {
   //send reciever state every one second
-  if (millis() - messageStartTime >= 1000)
+  if (millis() - displayMessageStartTime >= 1000)
   {
     String msg = "Serial RX: ";
     msg += (String)serialMessageCount;
@@ -128,11 +143,11 @@ void updateMessageCount()
     msg += "MQTT RX: ";
     msg += (String)MQTTMessageCount;
     msg += " FSAFE: ";
-    msg += (String)failSafeTimes.size();
+    msg += (String)joystickActionTimes.size();
 
     displayMessage(std::move(msg));
 
-    messageStartTime = millis();
+    displayMessageStartTime = millis();
     serialMessageCount = 0;
     MQTTMessageCount = 0;
   }
@@ -142,9 +157,7 @@ void dealWithButtonClick(const char *JSONKey, bool JSONValue)
 {
   joystick[JSONKey] = JSONValue;
 
-  failSafeTimes[JSONKey] = std::make_pair(millis() + FAIL_SAFE_TIME_MS, false);
-
-  //Serial.println(failSafeTimes.size());
+  joystickActionTimes[JSONKey] = millis() + FAIL_SAFE_TIME_MS;
 }
 
 void setJoystick(String message, const char *JSONKey, const char *JSONKeyMapped, long lowestValue, long highestValue)
@@ -160,10 +173,8 @@ void setJoystick(String message, const char *JSONKey, const char *JSONKeyMapped,
   joystick[JSONKey] = analogValue;
   joystick[JSONKeyMapped] = mappedValue;
 
-  failSafeTimes[JSONKey] = std::make_pair(millis() + FAIL_SAFE_TIME_MS, 0);
-  failSafeTimes[JSONKeyMapped] = std::make_pair(millis() + FAIL_SAFE_TIME_MS, 0);
-
-  //Serial.println(failSafeTimes.size());
+  joystickActionTimes[JSONKey] = millis() + FAIL_SAFE_TIME_MS;
+  joystickActionTimes[JSONKeyMapped] = millis() + FAIL_SAFE_TIME_MS;
 }
 
 void setValue(String message, String value, const char *JSONKey)
@@ -177,7 +188,7 @@ void setValue(String message, String value, const char *JSONKey)
   }
 }
 
-void sendMQTTTask(String message)
+void dealWithReceivedMessage(String message)
 {
   //deal with the message and make ready for sending
   message.trim();
@@ -277,31 +288,38 @@ void sendMQTTTask(String message)
   }
 
   //only send MQTT every X milliseconds
-  if (millis() - lastMQTTMessageSentTime >= 100)
+  if (millis() - lastMQTTMessageSentTime >= 50)
   {
     lastMQTTMessageSentTime = millis();
 
-    String json;
-    serializeJson(joystick, json);
-
-    checkMQTTconnection();
-
-    MQTTClient.publish("XBOX360", json.c_str());
-
-    json.clear();
-
     MQTTMessageCount++;
+
+    sendMQTTmessage();
   }
+}
+
+//actually send the MQTT message
+void sendMQTTmessage()
+{
+  String json;
+  serializeJson(joystick, json);
+
+  checkMQTTconnection();
+
+  MQTTClient.publish("XBOX360", json.c_str());
+
+  //Serial.println(json.c_str());
+
+  json.clear();
 }
 
 void checkFailSafe()
 {
-  std::map<String, failsafeValue>::iterator i = failSafeTimes.begin();
+  std::map<String, unsigned long>::iterator i = joystickActionTimes.begin();
 
-  while (i != failSafeTimes.end())
+  while (i != joystickActionTimes.end())
   {
-    failsafeValue values = i->second;
-    unsigned long failSafeTime = values.first;
+    unsigned long failSafeTime = i->second;
 
     // Serial.print(i->first);
     // Serial.print(":");
@@ -311,17 +329,15 @@ void checkFailSafe()
 
     if (millis() >= failSafeTime)
     {
-      joystick[i->first] = values.second;
+      joystick[i->first] = failSafeValues[i->first];
 
-      i = failSafeTimes.erase(i);
+      i = joystickActionTimes.erase(i);
     }
     else
     {
       ++i;
     }
   }
-
-  //Serial.println(failSafeTimes.size());
 }
 
 void checkMQTTconnection()
@@ -348,35 +364,44 @@ void displayMessage(String message)
   display.display();
 }
 
-
 void setupFailSafeValues()
 {
   failSafeValues["start"] = false;
+  failSafeValues["xbox"] = false;
+  failSafeValues["sync"] = false;
+  failSafeValues["back"] = false;
+
   failSafeValues["pad_up"] = false;
   failSafeValues["pad_down"] = false;
   failSafeValues["pad_left"] = false;
   failSafeValues["pad_right"] = false;
+
   failSafeValues["shoulder_left"] = false;
   failSafeValues["shoulder_right"] = false;
-  failSafeValues["trigger_left"] = false;
-  failSafeValues["trigger_right"] = false;
-  failSafeValues["trigger_left_analog"] = 0;
-  failSafeValues["trigger_right_analog"] = 0;
+
+  failSafeValues["trigger_left"] = 0;
+  failSafeValues["trigger_left_mapped"] = 0;
+
+  failSafeValues["trigger_right"] = 0;
+  failSafeValues["trigger_right_mapped"] = 0;
+
   failSafeValues["left_x"] = 0;
   failSafeValues["left_y"] = 0;
   failSafeValues["left_x_mapped"] = 0;
   failSafeValues["left_y_mapped"] = 0;
   failSafeValues["left"] = false;
+
   failSafeValues["right_x"] = 0;
   failSafeValues["right_y"] = 0;
   failSafeValues["right_x_mapped"] = 0;
   failSafeValues["right_y_mapped"] = 0;
   failSafeValues["right"] = false;
 
+  failSafeValues["button_a"] = false;
+  failSafeValues["button_b"] = false;
+  failSafeValues["button_x"] = false;
+  failSafeValues["button_y"] = false;
 
-  button_a
-  button_b
-  button_x
-  button_y
-  
+  //create a copy for the joystick
+  joystick = failSafeValues;
 }

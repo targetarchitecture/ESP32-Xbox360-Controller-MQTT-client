@@ -18,7 +18,7 @@ bool ledOnState = false;
 unsigned long batteryStateTime;
 unsigned long connectionStateTime;
 unsigned long controllerStateTime;
-unsigned long baudRate = 14400; // 115200;
+unsigned long baudRate = 38400; // 115200;
 
 
 void setup()
