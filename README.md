@@ -2,6 +2,8 @@
 
 ![Failsafe Film](/images/failsafe.png)
 
+![Failsafe Film](/images/video.gif)
+
 Two years on after I started learning about robotics and electronic engineering. I decided to revisit a problem that I couldn't find a solution for when building Zebra (Ada's first robot). I wanted to use my old Xbox 360 controllers and their wireless receiver to operate robots directly. 
 
 It sounds like a relatively simple problem, however the XBOX360 wireless receiver is very picky about the host controller it's plugged into, and the host controller can also be very picky about the device that it's plugged into. After weeks of failing to get this to work, I packed the XBOX360 controllers away.
@@ -14,7 +16,7 @@ The ESP8266, it claims to have to two UARTs howevers both of them are basically 
 
 The ESP32 and the Arduino have differant logic levels (5v & 3.3v), the hardware incorporates a logic level shifter for both the transmit and recieve lines.
 
-I added a small SSD1306 OLED display to show some stats and the XBOX360 logo.
+I added a small SSD1306 OLED display to show some stats and the XBOX360 logo. The project
 
 
 
