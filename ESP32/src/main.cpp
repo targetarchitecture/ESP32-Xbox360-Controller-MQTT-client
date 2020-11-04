@@ -8,6 +8,11 @@
 #include <Adafruit_SSD1306.h>
 #include <map>
 #include <ArduinoJSON.h>
+#include <ESPmDNS.h>
+#include <WiFi.h>
+#include <ESPmDNS.h>
+#include <WiFiUdp.h>
+#include <ArduinoOTA.h>
 
 #define LED_BUILTIN 2
 #define USE_SERIAL
@@ -93,10 +98,55 @@ void setup()
 
   //set some default values
   joystick["make"] = "XBOX360";
+
+  //sorting out OTA
+  MDNS.begin("ESP32-XBOX360");
+  ArduinoOTA.setHostname("ESP32-XBOX360");
+  ArduinoOTA.setPassword("0a3ccdeb-ee30-4485-aaa5-c54303ca5f74");
+
+  ArduinoOTA
+      .onStart([]() {
+        String type;
+        if (ArduinoOTA.getCommand() == U_FLASH)
+          type = "sketch";
+        else // U_SPIFFS
+          type = "filesystem";
+
+        // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
+        Serial.println("Start updating " + type);
+      })
+      .onEnd([]() {
+        Serial.println("\nEnd");
+      })
+      .onProgress([](unsigned int progress, unsigned int total) {
+        Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+      })
+      .onError([](ota_error_t error) {
+        Serial.printf("Error[%u]: ", error);
+        if (error == OTA_AUTH_ERROR)
+          Serial.println("Auth Failed");
+        else if (error == OTA_BEGIN_ERROR)
+          Serial.println("Begin Failed");
+        else if (error == OTA_CONNECT_ERROR)
+          Serial.println("Connect Failed");
+        else if (error == OTA_RECEIVE_ERROR)
+          Serial.println("Receive Failed");
+        else if (error == OTA_END_ERROR)
+          Serial.println("End Failed");
+      });
+
+  ArduinoOTA.begin();
+
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
 }
 
 void loop()
 {
+  //Over the air updates
+  ArduinoOTA.handle();
+
+  //sort out the OLED display message
   updateMessageCount();
 
   if (Serial2.available())
