@@ -1,7 +1,5 @@
 # XBOX360 Wireless MQTT Controller
 
-![Failsafe Film](/images/failsafe.png)
-
 ![Failsafe Film](/images/video.gif)
 
 Two years on after I started learning about robotics and electronic engineering. I decided to revisit a problem that I couldn't find a solution for when building Zebra (Ada's first robot). I wanted to use my old Xbox 360 controllers and their wireless receiver to operate robots directly. 
@@ -16,11 +14,12 @@ The ESP8266, it claims to have to two UARTs howevers both of them are basically 
 
 The ESP32 and the Arduino have differant logic levels (5v & 3.3v), the hardware incorporates a logic level shifter for both the transmit and recieve lines.
 
-I added a small SSD1306 OLED display to show some stats and the XBOX360 logo. The project
+I added a small SSD1306 OLED display to show some stats and the XBOX360 logo. To house the project I used circular USB panel mount sockets for the first time, these are much easier to install as it just requires a hole drilled and not my usual butchery with a dremmel.
 
 
 
 
+![Failsafe Film](/images/failsafe.png)
 
 # Actions
 
