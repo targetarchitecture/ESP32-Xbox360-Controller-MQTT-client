@@ -1,5 +1,23 @@
-# xbox360-MQTT-client
-A convoluted solution involving an Arduino Uno, USB host controller v1.3 and an ESP32
+# XBOX360 Wireless MQTT Controller
+
+![Failsafe Film](/images/failsafe.png)
+
+Two years on after I started learning about robotics and electronic engineering. I decided to revisit a problem that I couldn't find a solution for when building Zebra (Ada's first robot). I wanted to use my old Xbox 360 controllers and their wireless receiver to operate robots directly. 
+
+It sounds like a relatively simple problem, however the XBOX360 wireless receiver is very picky about the host controller it's plugged into, and the host controller can also be very picky about the device that it's plugged into. After weeks of failing to get this to work, I packed the XBOX360 controllers away.
+
+It's 2020 and everything is an IoT MQTT device - even your 15 year old XBOX360 controllers. I still had the original Ardiuno Uno and a USB host shield from Keyestudio that I had purchased to build Zebra. The Uno and the USB shield had always been a stable combination when using the XBOX360 wireless controller - however at the time I lacked the knowledge to turn this into a working robot controller.
+
+The simplest solution was to connect the Arduino Uno to the ESP32 via the arduinos serial pins and to the second serial (UART) on the ESP32. The ESP32 is much easier to use in this respect as it has multiple UARTs compared to the ESP8266.
+
+The ESP8266, it claims to have to two UARTs howevers both of them are basically in use - one for programming and the other for the flash memory access.
+
+The ESP32 and the Arduino have differant logic levels (5v & 3.3v), the hardware incorporates a logic level shifter for both the transmit and recieve lines.
+
+I added a small SSD1306 OLED display to show some stats and the XBOX360 logo.
+
+
+
 
 
 # Actions
