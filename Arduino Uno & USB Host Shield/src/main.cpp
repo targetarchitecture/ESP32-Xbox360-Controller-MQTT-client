@@ -142,11 +142,19 @@ void loop()
           msg += "X,";
           msg += (String)Xbox.getAnalogHat(LeftHatX, i);
         }
+        else
+        {
+          msg += "X,0";
+        }
 
         if (Xbox.getAnalogHat(LeftHatY, i) > 7500 || Xbox.getAnalogHat(LeftHatY, i) < -7500)
         {
-          msg += "Y,";
+          msg += ",Y,";
           msg += (String)Xbox.getAnalogHat(LeftHatY, i);
+        }
+        else
+        {
+          msg += ",Y,0";
         }
         Serial.println(msg);
       }
@@ -162,15 +170,19 @@ void loop()
         }
         if (Xbox.getAnalogHat(RightHatY, i) > 7500 || Xbox.getAnalogHat(RightHatY, i) < -7500)
         {
-          msg += "Y,";
+          msg += ",Y,";
           msg += (String)Xbox.getAnalogHat(RightHatY, i);
         }
+        else
+        {
+          msg += ",Y,0";
+        }
 
-        Serial.println("");
+        Serial.println(msg);
       }
 
       //now do the buttons
-      String msg = "BTN:";
+      String msg = "";
 
       msg += dealWithButton(L2, i, "L2");
       msg += dealWithButton(R2, i, "R2");
@@ -196,17 +208,24 @@ void loop()
       msg += dealWithButton(X, i, "X");
       msg += dealWithButton(Y, i, "Y");
 
-      Serial.println(msg);
+      if (msg.length() > 0)
+      {
+        msg = "BTN:" + msg;
+
+        Serial.println(msg);
+      }
 
       if (Xbox.getButtonClick(SYNC, i))
       {
         Xbox.disconnect(i);
       }
     }
-
-    //reset watchdog timer
-    wdt_reset();
   }
+
+  //reset watchdog timer
+  wdt_reset();
+
+  delay(5);
 
   Serial.flush();
 
@@ -215,14 +234,30 @@ void loop()
 
 String dealWithButton(ButtonEnum b, uint8_t controller, String topic)
 {
-  if (Xbox.getButtonPress(b, controller) == 1 || Xbox.getButtonClick(b, controller) == true)
+  // These are analog buttons
+  if (b == L2)
   {
-    return topic + ",";
+    if (Xbox.getButtonPress(L2, controller))
+    {
+      return topic + ",";
+    }
+  }
+  else if (b == R2)
+  {
+    if (Xbox.getButtonPress(R2, controller))
+    {
+      return topic + ",";
+    }
   }
   else
   {
-    return "";
+    if (Xbox.getButtonPress(b, controller) == 1 || Xbox.getButtonClick(b, controller) == true)
+    {
+      return topic + ",";
+    }
   }
+
+  return "";
 }
 
 void dealWithIncomingCommands(uint8_t i)
