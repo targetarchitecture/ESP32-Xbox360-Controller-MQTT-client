@@ -55,6 +55,8 @@ void setup()
   wdt_reset();
 }
 
+//String msg
+
 void loop()
 {
   Usb.Task();
@@ -133,24 +135,30 @@ void loop()
       dealWithIncomingCommands(i);
 
       //now get the button and stick states
-      if (Xbox.getAnalogHat(LeftHatX, i) > 7500 || Xbox.getAnalogHat(LeftHatX, i) < -7500 || Xbox.getAnalogHat(LeftHatY, i) > 7500 || Xbox.getAnalogHat(LeftHatY, i) < -7500)
+      auto LHX = Xbox.getAnalogHat(LeftHatX, i);
+      auto LHY = Xbox.getAnalogHat(LeftHatY, i);
+
+      auto RHX = Xbox.getAnalogHat(RightHatX, i);
+      auto RHY = Xbox.getAnalogHat(RightHatY, i);
+
+      if (LHX > 8000 || LHX < -8000 || LHY > 8000 || LHY < -8000)
       {
         String msg = "LH:";
 
-        if (Xbox.getAnalogHat(LeftHatX, i) > 7500 || Xbox.getAnalogHat(LeftHatX, i) < -7500)
+        if (LHX > 8000 || LHX < -8000)
         {
           msg += "X,";
-          msg += (String)Xbox.getAnalogHat(LeftHatX, i);
+          msg += (String)LHX;
         }
         else
         {
           msg += "X,0";
         }
 
-        if (Xbox.getAnalogHat(LeftHatY, i) > 7500 || Xbox.getAnalogHat(LeftHatY, i) < -7500)
+        if (LHY > 8000 || LHY < -8000)
         {
           msg += ",Y,";
-          msg += (String)Xbox.getAnalogHat(LeftHatY, i);
+          msg += (String)LHY;
         }
         else
         {
@@ -159,19 +167,24 @@ void loop()
         Serial.println(msg);
       }
 
-      if (Xbox.getAnalogHat(RightHatX, i) > 7500 || Xbox.getAnalogHat(RightHatX, i) < -7500 || Xbox.getAnalogHat(RightHatY, i) > 7500 || Xbox.getAnalogHat(RightHatY, i) < -7500)
+      if (RHX > 8000 || RHX < -8000 || RHY > 8000 || RHY < -8000)
       {
         String msg = "RH:";
 
-        if (Xbox.getAnalogHat(RightHatX, i) > 7500 || Xbox.getAnalogHat(RightHatX, i) < -7500)
+        if (RHX > 8000 || RHX < -8000)
         {
           msg += "X,";
-          msg += (String)Xbox.getAnalogHat(RightHatX, i);
+          msg += (String)RHX;
         }
-        if (Xbox.getAnalogHat(RightHatY, i) > 7500 || Xbox.getAnalogHat(RightHatY, i) < -7500)
+        else
+        {
+          msg += "X,0";
+        }
+
+        if (RHY > 8000 || RHY < -8000)
         {
           msg += ",Y,";
-          msg += (String)Xbox.getAnalogHat(RightHatY, i);
+          msg += (String)RHY;
         }
         else
         {
@@ -179,13 +192,24 @@ void loop()
         }
 
         Serial.println(msg);
+      }
+
+      //do the trigger buttons (including dead stick)
+      if (Xbox.getButtonPress(L2, i) > 80)
+      {
+        Serial.print("BTN:L2,");
+        Serial.println(Xbox.getButtonPress(L2, i));
+      }
+
+      if (Xbox.getButtonPress(R2, i) > 80)
+      {
+        Serial.print("BTN:R2,");
+        Serial.println(Xbox.getButtonPress(R2, i));
       }
 
       //now do the buttons
       String msg = "";
 
-      msg += dealWithButton(L2, i, "L2");
-      msg += dealWithButton(R2, i, "R2");
       msg += dealWithButton(UP, i, "UP");
       msg += dealWithButton(DOWN, i, "DOWN");
       msg += dealWithButton(LEFT, i, "LEFT");
@@ -211,8 +235,11 @@ void loop()
       if (msg.length() > 0)
       {
         msg = "BTN:" + msg;
+        msg = msg.substring(0,msg.length()-1);
 
         Serial.println(msg);
+
+        msg = "";
       }
 
       if (Xbox.getButtonClick(SYNC, i))
@@ -222,39 +249,19 @@ void loop()
     }
   }
 
+  Serial.flush();
+
   //reset watchdog timer
   wdt_reset();
 
   delay(5);
-
-  Serial.flush();
-
-  yield();
 }
 
 String dealWithButton(ButtonEnum b, uint8_t controller, String topic)
 {
-  // These are analog buttons
-  if (b == L2)
+  if (Xbox.getButtonPress(b, controller) == 1 || Xbox.getButtonClick(b, controller) == true)
   {
-    if (Xbox.getButtonPress(L2, controller))
-    {
-      return topic + ",";
-    }
-  }
-  else if (b == R2)
-  {
-    if (Xbox.getButtonPress(R2, controller))
-    {
-      return topic + ",";
-    }
-  }
-  else
-  {
-    if (Xbox.getButtonPress(b, controller) == 1 || Xbox.getButtonClick(b, controller) == true)
-    {
-      return topic + ",";
-    }
+    return topic + ",";
   }
 
   return "";
