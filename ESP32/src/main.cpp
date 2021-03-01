@@ -10,6 +10,8 @@
 #include <ArduinoJSON.h>
 #include <topics.h>
 #include <sstream>
+#include <vector>
+#include <iostream>
 
 #define LED_BUILTIN 2
 #define USE_SERIAL
@@ -17,10 +19,6 @@
 WiFiClient client;
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
 PubSubClient MQTTClient;
-
-// StaticJsonDocument<850> joystick;
-// StaticJsonDocument<850> failSafeValues;
-// std::map<String, unsigned long> joystickActionTimes;
 
 //create the joystick object once
 const size_t left_stick_capacity = JSON_OBJECT_SIZE(4);
@@ -39,19 +37,14 @@ unsigned long lastMQTTMessageSentTime = millis();
 unsigned long lastMessageReceivedTime = millis();
 
 //declare functions
-//void displayMessage(String message);
-void displayMessage(const std::string message);
+void displayMessage(String message);
 void updateMessageCount();
 void checkMQTTconnection();
 void sendMQTTmessage();
-void dealWithReceivedMessage(const std::string message);
-//void checkFailSafe();
+void dealWithReceivedMessage(const String message);
 void dealWithButtonClick(const char *JSONKey, bool JSONValue);
 void setJoystick(const std::string message, const char *JSONKey, const char *JSONKeyMapped, long lowestValue, long highestValue);
-//void setupFailSafeValues();
-// std::string &rtrim(std::string &str, const std::string &chars = "\t\n\v\f\r ");
-// std::string &ltrim(std::string &str, const std::string &chars = "\t\n\v\f\r ");
-// std::string &trim(std::string &str, const std::string &chars = "\t\n\v\f\r ");
+std::vector<std::string> processQueueMessage(const String msg);
 
 void setup()
 {
@@ -119,13 +112,15 @@ void loop()
 
     String message = Serial2.readStringUntil('\n');
 
+    Serial.println(message.c_str());
+
     serialMessageCount++;
 
     lastMessageReceivedTime = millis();
 
-     MQTTClient.publish(MQTT_INFO_TOPIC, message.c_str());
+    //MQTTClient.publish(MQTT_INFO_TOPIC, message.c_str());
 
-    //dealWithReceivedMessage(message);
+    dealWithReceivedMessage(message);
 
     checkMQTTconnection();
 
@@ -146,19 +141,12 @@ void updateMessageCount()
     msg << "Serial RX: " << serialMessageCount << "\n"
         << "MQTT RX: " << MQTTMessageCount;
 
-    displayMessage(msg.str());
+    displayMessage(msg.str().c_str());
 
     displayMessageStartTime = millis();
     serialMessageCount = 0;
     MQTTMessageCount = 0;
   }
-}
-
-void dealWithButtonClick(const char *JSONKey, bool JSONValue)
-{
-  // joystick[JSONKey] = JSONValue;
-
-  // joystickActionTimes[JSONKey] = millis() + FAIL_SAFE_TIME_MS;
 }
 
 void setJoystick(std::string message, const char *JSONKey, const char *JSONKeyMapped, long lowestValue, long highestValue)
@@ -178,148 +166,119 @@ void setJoystick(std::string message, const char *JSONKey, const char *JSONKeyMa
   // joystickActionTimes[JSONKeyMapped] = millis() + FAIL_SAFE_TIME_MS;
 }
 
-void setValue(std::string message, std::string value, const char *JSONKey)
+
+void dealWithReceivedMessage(const String message)
 {
-  // if (message.startsWith(value))
-  // {
-  //   auto tempValue = message.substring(message.indexOf(':') + 1);
-  //   tempValue.trim();
+  //deal with the message and make ready for sending
+  String msg = message;
 
-  //   joystick[JSONKey] = tempValue;
-  // }
-}
+  msg.trim();
+  msg.toUpperCase();
 
-void dealWithReceivedMessage(String message)
-{
-  // //deal with the message and make ready for sending
-  // message = trim(message);
+  //check for bad string with more than one command
+  auto L1 = msg.length();
+  auto msg2 = msg;
+  msg2.replace(":", "");
+  auto L2 = msg2.length();
 
-  // std::transform(message.begin(), message.end(), message.begin(), ::toupper);
+  if ((L1 - L2) > 1)
+  {
+    String err = "Multiple Commands:" + msg;
 
-  // // message..trim();
-  // // message.toUpperCase();
+    MQTTClient.publish(MQTT_ERROR_TOPIC, err.c_str());
 
-  // if (message == "BATTERY:")
-  // {
-  //   setValue(message, "BATTERY:", "battery");
+    return;
+  }
 
-  //   MQTTClient.publish(MQTT_BATTERY_TOPIC, json.c_str());
-  // }
-  
-  // else if (message == "A:C")
-  // {
-  //   dealWithButtonClick("button_a", true);
-  // }
-  // else if (message == "B:C")
-  // {
-  //   dealWithButtonClick("button_b", true);
-  // }
-  // else if (message == "X:C")
-  // {
-  //   dealWithButtonClick("button_x", true);
-  // }
-  // else if (message == "A:C")
-  // {
-  //   dealWithButtonClick("button_y", true);
-  // }
-  // else if (message == "U:C")
-  // {
-  //   dealWithButtonClick("pad_up", true);
-  // }
-  // else if (message == "D:C")
-  // {
-  //   dealWithButtonClick("pad_down", true);
-  // }
-  // else if (message == "L:C")
-  // {
-  //   dealWithButtonClick("pad_left", true);
-  // }
-  // else if (message == "R:C")
-  // {
-  //   dealWithButtonClick("pad_right", true);
-  // }
-  // else if (message == "START:C")
-  // {
-  //   dealWithButtonClick("start", true);
-  // }
-  // else if (message == "BACK:C")
-  // {
-  //   dealWithButtonClick("back", true);
-  // }
-  // else if (message == "XBOX:C")
-  // {
-  //   dealWithButtonClick("xbox", true);
-  // }
-  // else if (message == "SYNC:C")
-  // {
-  //   dealWithButtonClick("sync", true);
-  // }
-  // else if (message == "L1:C")
-  // {
-  //   dealWithButtonClick("shoulder_left", true);
-  // }
-  // else if (message == "R2:C")
-  // {
-  //   dealWithButtonClick("shoulder_right", true);
-  // }
-  // else if (message == "L3:C")
-  // {
-  //   dealWithButtonClick("left", true);
-  // }
-  // else if (message == "R3:C")
-  // {
-  //   dealWithButtonClick("right", true);
-  // }
-  // else if (message.startsWith("L2:"))
-  // {
-  //   setJoystick(message, "trigger_left", "trigger_left_mapped", 0, 255);
-  // }
-  // else if (message.startsWith("R2:"))
-  // {
-  //   setJoystick(message, "trigger_right", "trigger_right_mapped", 0, 255);
-  // }
-  // else if (message.startsWith("LHX:"))
-  // {
-  //   setJoystick(message, "left_x", "left_x_mapped", -32768, 32767);
-  // }
-  // else if (message.startsWith("LHY:"))
-  // {
-  //   setJoystick(message, "left_y", "left_y_mapped", -32768, 32767);
-  // }
-  // else if (message.startsWith("RHX:"))
-  // {
-  //   setJoystick(message, "right_x", "right_x_mapped", -32768, 32767);
-  // }
-  // else if (message.startsWith("RHY:"))
-  // {
-  //   setJoystick(message, "right_y", "right_y_mapped", -32768, 32767);
-  // }
+  //MQTTClient.publish("XBOX360/msg", msg.c_str());
 
-  // //only send MQTT every X milliseconds
-  // if (millis() - lastMQTTMessageSentTime >= 50)
-  // {
-  //   lastMQTTMessageSentTime = millis();
+  MQTTClient.publish("XBOX360/test", String(L1 - L2).c_str());
 
-  //   MQTTMessageCount++;
+  if (msg.startsWith("BAT:"))
+  {
+    auto battery = msg.substring(msg.indexOf(":") + 1);
 
-  //   sendMQTTmessage();
-  // }
-}
+    MQTTClient.publish(MQTT_BATTERY_TOPIC, battery.c_str());
 
-//actually send the MQTT message
-void sendMQTTmessage(std::string topic )
-{
-  // std::string json;
-  // serializeJson(joystick, json);
+    return;
+  }
 
-  // checkMQTTconnection();
+  if (msg.startsWith("XCC:") || msg.startsWith("XRC:"))
+  {
+    MQTTClient.publish(MQTT_INFO_TOPIC, msg.c_str());
 
-  // MQTTClient.publish("XBOX360", json.c_str());
+    return;
+  }
 
-  // //Serial.println(json.c_str());
+  if (msg.startsWith("BTN:L2")) // || msg.startsWith("BTN:R2"))
+  {
+    auto triggerValue = msg.substring(msg.indexOf(",") + 1);
 
-  // json.clear();
-}
+    //clear down button array
+    buttons.clear();
+
+    buttons["left"] = triggerValue;
+
+    JsonObject buttonObj = buttons.as<JsonObject>();
+
+    std::string json;
+
+    serializeJson(buttonObj, json);
+
+    MQTTClient.publish(MQTT_TRIGGER_TOPIC, json.c_str());
+
+    return;
+  }
+
+  if (msg.startsWith("BTN:R2")) // || msg.startsWith("BTN:R2"))
+  {
+    auto triggerValue = msg.substring(msg.indexOf(",") + 1);
+
+    //clear down button array
+    buttons.clear();
+
+    buttons["right"] = triggerValue;
+
+    JsonObject buttonObj = buttons.as<JsonObject>();
+
+    std::string json;
+
+    serializeJson(buttonObj, json);
+
+    MQTTClient.publish(MQTT_TRIGGER_TOPIC, json.c_str());
+
+    return;
+  }
+
+  if (msg.startsWith("BTN:"))
+  {
+    auto buttonCSV = msg.substring(msg.indexOf(":") + 1);
+
+    std::vector<std::string> buttonList;
+
+    buttonList = processQueueMessage(buttonCSV);
+
+    //clear down button array
+    buttons.clear();
+
+    for (std::string i : buttonList)
+    {
+      buttons[i] = true;
+    }
+
+    JsonObject buttonObj = buttons.as<JsonObject>();
+
+    if (buttonObj.size() > 0)
+    {
+      std::string json;
+
+      serializeJson(buttonObj, json);
+
+      MQTTClient.publish(MQTT_BUTTON_TOPIC, json.c_str());
+    }
+
+    return;
+  }
 
 void checkMQTTconnection()
 {
@@ -332,7 +291,7 @@ void checkMQTTconnection()
   }
 }
 
-void displayMessage(const std::string message)
+void displayMessage(const String message)
 {
   display.clearDisplay(); //for Clearing the display
   display.setTextSize(1); // Draw 2X-scale text
@@ -345,19 +304,18 @@ void displayMessage(const std::string message)
   display.display();
 }
 
-// std::string &ltrim(std::string &str, const std::string &chars = "\t\n\v\f\r ")
-// {
-//   str.erase(0, str.find_first_not_of(chars));
-//   return str;
-// }
+std::vector<std::string> processQueueMessage(const String msg)
+{
+  std::vector<std::string> parts;
+  std::istringstream f(msg.c_str());
+  std::string part;
 
-// std::string &rtrim(std::string &str, const std::string &chars = "\t\n\v\f\r ")
-// {
-//   str.erase(str.find_last_not_of(chars) + 1);
-//   return str;
-// }
+  while (std::getline(f, part, ','))
+  {
+    parts.push_back(part);
 
-// std::string &trim(std::string &str, const std::string &chars = "\t\n\v\f\r ")
-// {
-//   return ltrim(rtrim(str, chars), chars);
-// }
+    Serial.println(part.c_str());
+  }
+
+  return parts;
+}

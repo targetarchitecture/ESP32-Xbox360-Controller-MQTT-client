@@ -165,6 +165,7 @@ void loop()
           msg += ",Y,0";
         }
         Serial.println(msg);
+        Serial.flush();
       }
 
       if (RHX > 8000 || RHX < -8000 || RHY > 8000 || RHY < -8000)
@@ -192,19 +193,26 @@ void loop()
         }
 
         Serial.println(msg);
+        Serial.flush();
       }
 
       //do the trigger buttons (including dead stick)
       if (Xbox.getButtonPress(L2, i) > 80)
       {
-        Serial.print("BTN:L2,");
-        Serial.println(Xbox.getButtonPress(L2, i));
+        auto L2val = Xbox.getButtonPress(L2, i);
+        String msg = "BTN:R2," + L2val;
+
+        Serial.println(msg);
+        Serial.flush();
       }
 
       if (Xbox.getButtonPress(R2, i) > 80)
       {
-        Serial.print("BTN:R2,");
-        Serial.println(Xbox.getButtonPress(R2, i));
+        auto R2val = Xbox.getButtonPress(R2, i);
+        String msg = "BTN:R2," + R2val;
+
+        Serial.println(msg);
+        Serial.flush();
       }
 
       //now do the buttons
@@ -235,9 +243,10 @@ void loop()
       if (msg.length() > 0)
       {
         msg = "BTN:" + msg;
-        msg = msg.substring(0,msg.length()-1);
+        msg = msg.substring(0, msg.length() - 1);
 
         Serial.println(msg);
+        Serial.flush();
 
         msg = "";
       }
@@ -248,8 +257,6 @@ void loop()
       }
     }
   }
-
-  Serial.flush();
 
   //reset watchdog timer
   wdt_reset();
