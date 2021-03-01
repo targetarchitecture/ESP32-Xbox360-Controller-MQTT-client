@@ -12,6 +12,7 @@
 #include <sstream>
 #include <vector>
 #include <iostream>
+#include <list>
 
 #define LED_BUILTIN 2
 #define USE_SERIAL
@@ -20,31 +21,20 @@ WiFiClient client;
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
 PubSubClient MQTTClient;
 
-//create the joystick object once
-const size_t left_stick_capacity = JSON_OBJECT_SIZE(4);
-DynamicJsonDocument left_joystick(left_stick_capacity);
-
-const size_t right_stick_capacity = JSON_OBJECT_SIZE(4);
-DynamicJsonDocument right_joystick(right_stick_capacity);
-
-const size_t button_capacity = JSON_OBJECT_SIZE(21);
-DynamicJsonDocument buttons(button_capacity);
+//create the JSON object once
+const size_t JSON_capacity = JSON_OBJECT_SIZE(21);
+DynamicJsonDocument JSON(JSON_capacity);
 
 unsigned long displayMessageStartTime = millis();
-int serialMessageCount = 0;
-int MQTTMessageCount = 0;
-unsigned long lastMQTTMessageSentTime = millis();
-unsigned long lastMessageReceivedTime = millis();
+uint64_t serialMessageCount = 0;
+uint64_t MQTTMessageCount = 0;
 
 //declare functions
-void displayMessage(String message);
+void displayMessage(std::string message);
 void updateMessageCount();
 void checkMQTTconnection();
-void sendMQTTmessage();
-void dealWithReceivedMessage(const String message);
-void dealWithButtonClick(const char *JSONKey, bool JSONValue);
-void setJoystick(const std::string message, const char *JSONKey, const char *JSONKeyMapped, long lowestValue, long highestValue);
-std::vector<std::string> processQueueMessage(const String msg);
+void dealWithReceivedMessage(const std::string message);
+std::vector<std::string> processQueueMessage(const std::string msg);
 
 void setup()
 {
@@ -110,17 +100,16 @@ void loop()
   {
     digitalWrite(LED_BUILTIN, HIGH);
 
-    String message = Serial2.readStringUntil('\n');
+    String UART = Serial2.readStringUntil('\n');
 
-    Serial.println(message.c_str());
+    std::string message = UART.c_str();
 
     serialMessageCount++;
 
-    lastMessageReceivedTime = millis();
-
+    //Too verbose
     //MQTTClient.publish(MQTT_INFO_TOPIC, message.c_str());
 
-    dealWithReceivedMessage(message);
+    dealWithReceivedMessage(message.c_str());
 
     checkMQTTconnection();
 
@@ -149,28 +138,10 @@ void updateMessageCount()
   }
 }
 
-void setJoystick(std::string message, const char *JSONKey, const char *JSONKeyMapped, long lowestValue, long highestValue)
-{
-  // auto tempValue = message.substring(message.indexOf(':') + 1);
-  // tempValue.trim();
-  // auto mqttValue = tempValue.c_str();
-
-  // long analogValue = atol(mqttValue);
-
-  // auto mappedValue = map(analogValue, lowestValue, highestValue, 0, 100);
-
-  // joystick[JSONKey] = analogValue;
-  // joystick[JSONKeyMapped] = mappedValue;
-
-  // joystickActionTimes[JSONKey] = millis() + FAIL_SAFE_TIME_MS;
-  // joystickActionTimes[JSONKeyMapped] = millis() + FAIL_SAFE_TIME_MS;
-}
-
-
-void dealWithReceivedMessage(const String message)
+void dealWithReceivedMessage(const std::string message)
 {
   //deal with the message and make ready for sending
-  String msg = message;
+  String msg = message.c_str();
 
   msg.trim();
   msg.toUpperCase();
@@ -190,10 +161,6 @@ void dealWithReceivedMessage(const String message)
     return;
   }
 
-  //MQTTClient.publish("XBOX360/msg", msg.c_str());
-
-  MQTTClient.publish("XBOX360/test", String(L1 - L2).c_str());
-
   if (msg.startsWith("BAT:"))
   {
     auto battery = msg.substring(msg.indexOf(":") + 1);
@@ -210,75 +177,178 @@ void dealWithReceivedMessage(const String message)
     return;
   }
 
-  if (msg.startsWith("BTN:L2")) // || msg.startsWith("BTN:R2"))
+  if (msg.startsWith("BTN:L2"))
   {
-    auto triggerValue = msg.substring(msg.indexOf(",") + 1);
+    auto triggerMsg = msg.substring(msg.indexOf(",") + 1);
 
-    //clear down button array
-    buttons.clear();
+    long triggerValue = atol(triggerMsg.c_str());
+    long triggerValue_mapped = map(triggerValue, 0, 255, 0, 100);
 
-    buttons["left"] = triggerValue;
+    //clear down JSON array
+    JSON.clear();
 
-    JsonObject buttonObj = buttons.as<JsonObject>();
+    JSON["left"] = triggerValue;
+    JSON["left_mapped"] = triggerValue_mapped;
 
-    std::string json;
+    JsonObject buttonObj = JSON.as<JsonObject>();
 
-    serializeJson(buttonObj, json);
+    std::string mqttMessage;
 
-    MQTTClient.publish(MQTT_TRIGGER_TOPIC, json.c_str());
+    serializeJson(buttonObj, mqttMessage);
+
+    MQTTClient.publish(MQTT_TRIGGER_TOPIC, mqttMessage.c_str());
 
     return;
   }
 
-  if (msg.startsWith("BTN:R2")) // || msg.startsWith("BTN:R2"))
+  if (msg.startsWith("BTN:R2"))
   {
-    auto triggerValue = msg.substring(msg.indexOf(",") + 1);
+    auto triggerMsg = msg.substring(msg.indexOf(",") + 1);
 
-    //clear down button array
-    buttons.clear();
+    long triggerValue = atol(triggerMsg.c_str());
+    long triggerValue_mapped = map(triggerValue, 0, 255, 0, 100);
 
-    buttons["right"] = triggerValue;
+    //clear down JSON array
+    JSON.clear();
 
-    JsonObject buttonObj = buttons.as<JsonObject>();
+    JSON["right"] = triggerValue;
+    JSON["right_mapped"] = triggerValue_mapped;
 
-    std::string json;
+    JsonObject buttonObj = JSON.as<JsonObject>();
 
-    serializeJson(buttonObj, json);
+    std::string mqttMessage;
 
-    MQTTClient.publish(MQTT_TRIGGER_TOPIC, json.c_str());
+    serializeJson(buttonObj, mqttMessage);
+
+    MQTTClient.publish(MQTT_TRIGGER_TOPIC, mqttMessage.c_str());
 
     return;
   }
 
   if (msg.startsWith("BTN:"))
   {
-    auto buttonCSV = msg.substring(msg.indexOf(":") + 1);
+    String buttonCSV = msg.substring(msg.indexOf(":") + 1);
 
     std::vector<std::string> buttonList;
 
-    buttonList = processQueueMessage(buttonCSV);
+    buttonList = processQueueMessage(buttonCSV.c_str());
 
     //clear down button array
-    buttons.clear();
+    JSON.clear();
 
     for (std::string i : buttonList)
     {
-      buttons[i] = true;
+      JSON[i] = true;
     }
 
-    JsonObject buttonObj = buttons.as<JsonObject>();
+    JsonObject buttonObj = JSON.as<JsonObject>();
 
     if (buttonObj.size() > 0)
     {
-      std::string json;
+      std::string mqttMessage;
 
-      serializeJson(buttonObj, json);
+      serializeJson(buttonObj, mqttMessage);
 
-      MQTTClient.publish(MQTT_BUTTON_TOPIC, json.c_str());
+      MQTTClient.publish(MQTT_BUTTON_TOPIC, mqttMessage.c_str());
     }
 
     return;
   }
+
+  if (msg.startsWith("LH:"))
+  {
+    String hatCSV = msg.substring(msg.indexOf(":") + 1);
+
+    //Serial.println(hatCSV.c_str());
+
+    std::list<std::string> hatValues;
+    std::istringstream f(hatCSV.c_str());
+    std::string part;
+
+    while (std::getline(f, part, ','))
+    {
+      hatValues.push_back(part);
+    }
+
+    hatValues.pop_front();
+    auto Xstr = hatValues.front();
+    hatValues.pop_front();
+    hatValues.pop_front();
+    auto Ystr = hatValues.front();
+
+    auto X = atoi(Xstr.c_str());
+    auto Y = atoi(Ystr.c_str());
+
+    auto mappedXValue = map(X, -32768, 32767, -100, 100);
+    auto mappedYValue = map(Y, -32768, 32767, -100, 100);
+
+    //clear down JSON array
+    JSON.clear();
+
+    JSON["x"] = X;
+    JSON["y"] = Y;
+
+    JSON["x_mapped"] = mappedXValue;
+    JSON["y_mapped"] = mappedYValue;
+
+    JsonObject buttonObj = JSON.as<JsonObject>();
+
+    std::string mqttMessage;
+
+    serializeJson(buttonObj, mqttMessage);
+
+    MQTTClient.publish(MQTT_LEFT_TOPIC, mqttMessage.c_str());
+
+    return;
+  }
+
+  if (msg.startsWith("RH:"))
+  {
+    String hatCSV = msg.substring(msg.indexOf(":") + 1);
+
+    //Serial.println(hatCSV.c_str());
+
+    std::list<std::string> hatValues;
+    std::istringstream f(hatCSV.c_str());
+    std::string part;
+
+    while (std::getline(f, part, ','))
+    {
+      hatValues.push_back(part);
+    }
+
+    hatValues.pop_front();
+    auto Xstr = hatValues.front();
+    hatValues.pop_front();
+    hatValues.pop_front();
+    auto Ystr = hatValues.front();
+
+    auto X = atoi(Xstr.c_str());
+    auto Y = atoi(Ystr.c_str());
+
+    auto mappedXValue = map(X, -32768, 32767, -100, 100);
+    auto mappedYValue = map(Y, -32768, 32767, -100, 100);
+
+    //clear down JSON array
+    JSON.clear();
+
+    JSON["x"] = X;
+    JSON["y"] = Y;
+
+    JSON["x_mapped"] = mappedXValue;
+    JSON["y_mapped"] = mappedYValue;
+
+    JsonObject buttonObj = JSON.as<JsonObject>();
+
+    std::string mqttMessage;
+
+    serializeJson(buttonObj, mqttMessage);
+
+    MQTTClient.publish(MQTT_RIGHT_TOPIC, mqttMessage.c_str());
+
+    return;
+  }
+}
 
 void checkMQTTconnection()
 {
@@ -291,7 +361,7 @@ void checkMQTTconnection()
   }
 }
 
-void displayMessage(const String message)
+void displayMessage(const std::string message)
 {
   display.clearDisplay(); //for Clearing the display
   display.setTextSize(1); // Draw 2X-scale text
@@ -304,17 +374,15 @@ void displayMessage(const String message)
   display.display();
 }
 
-std::vector<std::string> processQueueMessage(const String msg)
+std::vector<std::string> processQueueMessage(const std::string msg)
 {
   std::vector<std::string> parts;
-  std::istringstream f(msg.c_str());
+  std::istringstream f(msg);
   std::string part;
 
   while (std::getline(f, part, ','))
   {
     parts.push_back(part);
-
-    Serial.println(part.c_str());
   }
 
   return parts;

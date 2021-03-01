@@ -43,6 +43,7 @@
         "cinttypes": "cpp",
         "typeinfo": "cpp",
         "string_view": "cpp",
-        "iostream": "cpp"
+        "iostream": "cpp",
+        "list": "cpp"
     }
 }
