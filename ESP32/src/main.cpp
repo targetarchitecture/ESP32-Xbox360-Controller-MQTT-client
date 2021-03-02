@@ -107,7 +107,7 @@ void loop()
     serialMessageCount++;
 
     //Too verbose
-    //MQTTClient.publish(MQTT_INFO_TOPIC, message.c_str());
+    MQTTClient.publish(MQTT_INFO_TOPIC, message.c_str());
 
     dealWithReceivedMessage(message.c_str());
 
