@@ -50,7 +50,8 @@ void setup()
 #endif
 
   //baud speed of Arduino Uno sketch
-  Serial2.begin(38400);
+  //Serial2.begin(38400);
+  Serial2.begin(115200);
 
   // Init I2C bus & OLED
   Wire.begin();
@@ -104,10 +105,12 @@ void loop()
 
     std::string message = UART.c_str();
 
+    Serial.println(message.c_str());
+
     serialMessageCount++;
 
     //Too verbose
-    MQTTClient.publish(MQTT_INFO_TOPIC, message.c_str());
+    //MQTTClient.publish(MQTT_INFO_TOPIC, message.c_str());
 
     dealWithReceivedMessage(message.c_str());
 
@@ -161,21 +164,60 @@ void dealWithReceivedMessage(const std::string message)
     return;
   }
 
-  if (msg.startsWith("BAT:"))
-  {
-    auto battery = msg.substring(msg.indexOf(":") + 1);
-
-    MQTTClient.publish(MQTT_BATTERY_TOPIC, battery.c_str());
-
-    return;
-  }
-
-  if (msg.startsWith("XCC:") || msg.startsWith("XRC:"))
+  if (msg.startsWith("XRC:"))
   {
     MQTTClient.publish(MQTT_INFO_TOPIC, msg.c_str());
 
     return;
   }
+
+  std::string controller = "666";
+
+  if (msg.startsWith("0#"))
+  {
+    controller = "1";
+  }
+  if (msg.startsWith("1#"))
+  {
+    controller = "2";
+  }
+
+  //remove the controller index off the front
+  msg = msg.substring(2);
+
+  if (msg.startsWith("XCC:"))
+  {
+    String topic = MQTT_CONTROLLER_TOPIC;
+    topic.replace("{{controller}}", controller.c_str());
+
+    MQTTClient.publish(topic.c_str(), msg.c_str());
+
+    return;
+  }
+
+  if (msg.startsWith("BAT:"))
+  {
+    String topic = MQTT_BATTERY_TOPIC;
+    topic.replace("{{controller}}", controller.c_str());
+
+    auto battery = msg.substring(msg.indexOf(":") + 1);
+
+    MQTTClient.publish(topic.c_str(), battery.c_str());
+
+    return;
+  }
+
+  // if (msg.startsWith("XCC:") || msg.startsWith("XRC:"))
+  // {
+  //   MQTTClient.publish(MQTT_INFO_TOPIC, msg.c_str());
+  //   return;
+  // }
+
+  // if (msg.startsWith("XCC:") || msg.startsWith("XRC:"))
+  // {
+  //   MQTTClient.publish(MQTT_INFO_TOPIC, msg.c_str());
+  //   return;
+  // }
 
   if (msg.startsWith("BTN:L2"))
   {
@@ -187,8 +229,8 @@ void dealWithReceivedMessage(const std::string message)
     //clear down JSON array
     JSON.clear();
 
-    JSON["left"] = triggerValue;
-    JSON["left_mapped"] = triggerValue_mapped;
+    JSON["value"] = triggerValue;
+    JSON["mapped"] = triggerValue_mapped;
 
     JsonObject buttonObj = JSON.as<JsonObject>();
 
@@ -196,7 +238,10 @@ void dealWithReceivedMessage(const std::string message)
 
     serializeJson(buttonObj, mqttMessage);
 
-    MQTTClient.publish(MQTT_TRIGGER_TOPIC, mqttMessage.c_str());
+    String topic = MQTT_LEFT_TRIGGER_TOPIC;
+    topic.replace("{{controller}}", controller.c_str());
+
+    MQTTClient.publish(topic.c_str(), mqttMessage.c_str());
 
     return;
   }
@@ -211,8 +256,8 @@ void dealWithReceivedMessage(const std::string message)
     //clear down JSON array
     JSON.clear();
 
-    JSON["right"] = triggerValue;
-    JSON["right_mapped"] = triggerValue_mapped;
+    JSON["value"] = triggerValue;
+    JSON["mapped"] = triggerValue_mapped;
 
     JsonObject buttonObj = JSON.as<JsonObject>();
 
@@ -220,7 +265,10 @@ void dealWithReceivedMessage(const std::string message)
 
     serializeJson(buttonObj, mqttMessage);
 
-    MQTTClient.publish(MQTT_TRIGGER_TOPIC, mqttMessage.c_str());
+    String topic = MQTT_RIGHT_TRIGGER_TOPIC;
+    topic.replace("{{controller}}", controller.c_str());
+
+    MQTTClient.publish(topic.c_str(), mqttMessage.c_str());
 
     return;
   }
@@ -249,7 +297,10 @@ void dealWithReceivedMessage(const std::string message)
 
       serializeJson(buttonObj, mqttMessage);
 
-      MQTTClient.publish(MQTT_BUTTON_TOPIC, mqttMessage.c_str());
+      String topic = MQTT_BUTTON_TOPIC;
+      topic.replace("{{controller}}", controller.c_str());
+
+      MQTTClient.publish(topic.c_str(), mqttMessage.c_str());
     }
 
     return;
@@ -297,7 +348,10 @@ void dealWithReceivedMessage(const std::string message)
 
     serializeJson(buttonObj, mqttMessage);
 
-    MQTTClient.publish(MQTT_LEFT_TOPIC, mqttMessage.c_str());
+    String topic = MQTT_LEFT_TOPIC;
+    topic.replace("{{controller}}", controller.c_str());
+
+    MQTTClient.publish(topic.c_str(), mqttMessage.c_str());
 
     return;
   }
@@ -344,7 +398,10 @@ void dealWithReceivedMessage(const std::string message)
 
     serializeJson(buttonObj, mqttMessage);
 
-    MQTTClient.publish(MQTT_RIGHT_TOPIC, mqttMessage.c_str());
+    String topic = MQTT_RIGHT_TOPIC;
+    topic.replace("{{controller}}", controller.c_str());
+
+    MQTTClient.publish(topic.c_str(), mqttMessage.c_str());
 
     return;
   }

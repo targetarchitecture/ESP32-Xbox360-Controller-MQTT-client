@@ -1,12 +1,19 @@
 #pragma once
 
-auto MQTT_LEFT_TOPIC = "XBOX360/sticks/left";
-auto MQTT_RIGHT_TOPIC = "XBOX360/sticks/right";
-auto MQTT_BUTTON_TOPIC = "XBOX360/buttons";
-auto MQTT_TRIGGER_TOPIC = "XBOX360/buttons/triggers";
-auto MQTT_IP_TOPIC = "XBOX360/IP";
-auto MQTT_BATTERY_TOPIC = "XBOX360/battery";
-auto MQTT_RUMBLE_TOPIC = "XBOX360/rumble";
-auto MQTT_INFO_TOPIC = "XBOX360/info";
-auto MQTT_ERROR_TOPIC = "XBOX360/error";
+auto MQTT_LEFT_TOPIC = "xbox360/{{controller}}/sticks/left";
+auto MQTT_RIGHT_TOPIC = "xbox360/{{controller}}/sticks/right";
+auto MQTT_BUTTON_TOPIC = "xbox360/{{controller}}/buttons";
+auto MQTT_LEFT_TRIGGER_TOPIC = "xbox360/{{controller}}/triggers/left";
+auto MQTT_RIGHT_TRIGGER_TOPIC = "xbox360/{{controller}}/triggers/right";
+auto MQTT_BATTERY_TOPIC = "xbox360/{{controller}}/battery";
+auto MQTT_CONTROLLER_TOPIC = "xbox360/{{controller}}/info";
+
+auto MQTT_RUMBLE_TOPIC = "xbox360/{{controller}}/rumble";
+
+auto MQTT_INFO_TOPIC = "xbox360/info";
+auto MQTT_ERROR_TOPIC = "xbox360/error";
+auto MQTT_IP_TOPIC = "xbox360/ip";
+
+
+
 
