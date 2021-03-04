@@ -207,18 +207,6 @@ void dealWithReceivedMessage(const std::string message)
     return;
   }
 
-  // if (msg.startsWith("XCC:") || msg.startsWith("XRC:"))
-  // {
-  //   MQTTClient.publish(MQTT_INFO_TOPIC, msg.c_str());
-  //   return;
-  // }
-
-  // if (msg.startsWith("XCC:") || msg.startsWith("XRC:"))
-  // {
-  //   MQTTClient.publish(MQTT_INFO_TOPIC, msg.c_str());
-  //   return;
-  // }
-
   if (msg.startsWith("BTN:L2"))
   {
     auto triggerMsg = msg.substring(msg.indexOf(",") + 1);

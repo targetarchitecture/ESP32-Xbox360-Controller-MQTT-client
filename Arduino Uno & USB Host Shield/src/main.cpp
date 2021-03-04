@@ -18,6 +18,9 @@ bool ledOnState = false;
 unsigned long batteryStateTime;
 unsigned long connectionStateTime;
 unsigned long controllerStateTime;
+unsigned long buttonStateTime;
+unsigned long triggerStateTime;
+unsigned long HATStateTime;
 unsigned long baudRate = 115200;
 //unsigned long baudRate = 38400;
 
@@ -62,8 +65,7 @@ void loop()
   //reset watchdog timer
   wdt_reset();
 
-  delay(15);
-  //delay(5);
+  delay(20);
 
   //USB task
   Usb.Task();
@@ -77,7 +79,6 @@ void loop()
 
     Serial.println(msg);
     Serial.flush();
-    delay(1);
   }
 
   if (Xbox.XboxReceiverConnected)
@@ -85,7 +86,7 @@ void loop()
     //We'll deal with multiple controllers another day
     for (size_t controller = 0; controller < 2; controller++)
     {
-      //send controller state every X seconds
+      //send controller state every 10 seconds
       if (millis() - controllerStateTime >= 10000)
       {
         controllerStateTime = millis();
@@ -113,7 +114,6 @@ void loop()
 
           Serial.println(msg);
           Serial.flush();
-          delay(1);
         }
 
         //LED fail safe, turn off after 60 seconds
@@ -140,15 +140,33 @@ void loop()
         //see if there is a command on the Serial line
         dealWithIncomingCommands(controller);
 
-        //now get the button and stick states
-        leftHat(controller);
-        rightHat(controller);
+        //send HAT state every 200 milliseconds
+        if (millis() - HATStateTime >= 200)
+        {
+          HATStateTime = millis();
+          //now get the button and stick states
 
-        //do the trigger buttons (including dead stick)
-        triggers(controller);
+          leftHat(controller);
+          rightHat(controller);
+        }
 
-        //now do the buttons
-        sendButtonMessage(controller);
+        //send trigger state every 200 milliseconds
+        if (millis() - triggerStateTime >= 200)
+        {
+          triggerStateTime = millis();
+
+          //do the trigger buttons (including dead stick)
+          triggers(controller);
+        }
+
+        //send button state every 200 milliseconds
+        if (millis() - buttonStateTime >= 200)
+        {
+          buttonStateTime = millis();
+
+          //now do the buttons
+          sendButtonMessage(controller);
+        }
 
         if (Xbox.getButtonClick(SYNC, controller))
         {
@@ -196,7 +214,6 @@ void sendButtonMessage(uint8_t controller)
 
     Serial.println(msg);
     Serial.flush();
-    delay(1);
   }
 }
 
@@ -213,7 +230,6 @@ void triggers(uint8_t controller)
 
     Serial.println(L2msg);
     Serial.flush();
-    delay(1);
   }
 
   if (Xbox.getButtonPress(R2, controller) > 85)
@@ -227,7 +243,6 @@ void triggers(uint8_t controller)
 
     Serial.println(R2msg);
     Serial.flush();
-    delay(1);
   }
 }
 
@@ -265,7 +280,6 @@ void rightHat(uint8_t controller)
 
     Serial.println(msg);
     Serial.flush();
-    delay(1);
   }
 }
 
