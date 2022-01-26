@@ -41,7 +41,7 @@ std::vector<std::string> processQueueMessage(const std::string msg);
 double getAngleFromXY(float XAxisValue, float YAxisValue);
 std::string convertXYtoDirection(float X, float Y);
 float mapf(float value, float istart, float istop, float ostart, float ostop);
-std::string convertPadtoDirection(std::string msg);
+void convertPadtoDirection(std::string msg, const char *topic);
 
 void setup()
 {
@@ -308,11 +308,12 @@ void dealWithReceivedMessage(const std::string message)
       MQTTClient.publish(topic.c_str(), mqttMessage.c_str());
 
       //new direction function
-      Serial.println(buttonCSV);
+      topic = MQTT_BUTTON_DIRECTION_TOPIC;
+      topic.replace("{{controller}}", controller.c_str());
 
       std::stringstream pad;
       pad << buttonCSV.c_str();
-      convertPadtoDirection(pad.str());
+      convertPadtoDirection(pad.str(), topic.c_str());
 
       MQTTMessageCount++;
     }
@@ -442,20 +443,66 @@ void dealWithReceivedMessage(const std::string message)
 }
 
 //https://blackdoor.github.io/blog/thumbstick-controls/
-std::string convertPadtoDirection(std::string msg)
+void convertPadtoDirection(std::string msg, const char *topic)
 {
-  auto UP = msg.find("UP");
-  auto RIGHT = msg.find("RIGHT");
-  auto LEFT = msg.find("LEFT");
-  auto DOWN = msg.find("DOWN");
+  bool UP = false;
+  bool RIGHT = false;
+  bool LEFT = false;
+  bool DOWN = false;
+
+  if (msg.find("UP") != std::string::npos)
+  {
+    UP = true;
+  }
+  if (msg.find("RIGHT") != std::string::npos)
+  {
+    RIGHT = true;
+  }
+  if (msg.find("LEFT") != std::string::npos)
+  {
+    LEFT = true;
+  }
+  if (msg.find("DOWN") != std::string::npos)
+  {
+    DOWN = true;
+  }
 
   std::stringstream display;
 
   display << "UP:" << UP << "LEFT:" << LEFT << "RIGHT:" << RIGHT << "DOWN:" << DOWN;
 
-  Serial.println(display.str().c_str());
-
-  return display.str();
+  if (UP == true && RIGHT == false && DOWN == false && LEFT == false)
+  {
+    MQTTClient.publish(topic, "0");
+  }
+  else if (UP == true && RIGHT == true && DOWN == false && LEFT == false)
+  {
+    MQTTClient.publish(topic, "1");
+  }
+  else if (UP == false && RIGHT == true && DOWN == false && LEFT == false)
+  {
+    MQTTClient.publish(topic, "2");
+  }
+  else if (UP == false && RIGHT == true && DOWN == true && LEFT == false)
+  {
+    MQTTClient.publish(topic, "3");
+  }
+  else if (UP == false && RIGHT == false && DOWN == true && LEFT == false)
+  {
+    MQTTClient.publish(topic, "4");
+  }
+  else if (UP == false && RIGHT == false && DOWN == true && LEFT == true)
+  {
+    MQTTClient.publish(topic, "5");
+  }
+  else if (UP == false && RIGHT == false && DOWN == false && LEFT == true)
+  {
+    MQTTClient.publish(topic, "6");
+  }
+  else if (UP == true && RIGHT == false && DOWN == false && LEFT == true)
+  {
+    MQTTClient.publish(topic, "7");
+  }
 }
 
 //https://github.com/arduino/ArduinoCore-API/issues/71
@@ -485,6 +532,9 @@ std::string convertXYtoDirection(float X, float Y)
   //Finally, we get the current direction by dividing the angle
   // by the size of the sectors
   int direction = (int)floor(convertedAngle / sectorSize);
+
+  //cull back to 7
+  direction = max(direction,7);
 
   //the result directions map as follows:
   // 0 = UP, 1 = UP-RIGHT, 2 = RIGHT ... 7 = UP-LEFT.
