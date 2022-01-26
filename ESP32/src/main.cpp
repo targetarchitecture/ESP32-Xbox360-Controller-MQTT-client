@@ -13,6 +13,7 @@
 #include <vector>
 #include <iostream>
 #include <list>
+#include <cmath>
 
 #define LED_BUILTIN 2
 #define USE_SERIAL
@@ -29,12 +30,18 @@ unsigned long displayMessageStartTime = millis();
 uint64_t serialMessageCount = 0;
 uint64_t MQTTMessageCount = 0;
 
+constexpr double pi = 3.14159265358979323846;
+
 //declare functions
 void displayMessage(std::string message);
 void updateMessageCount();
 void checkMQTTconnection();
 void dealWithReceivedMessage(const std::string message);
 std::vector<std::string> processQueueMessage(const std::string msg);
+double getAngleFromXY(float XAxisValue, float YAxisValue);
+std::string convertXYtoDirection(float X, float Y);
+float mapf(float value, float istart, float istop, float ostart, float ostop);
+std::string convertPadtoDirection(std::string msg);
 
 void setup()
 {
@@ -50,7 +57,6 @@ void setup()
 #endif
 
   //baud speed of Arduino Uno sketch
-  //Serial2.begin(38400);
   Serial2.begin(115200);
 
   // Init I2C bus & OLED
@@ -78,6 +84,8 @@ void setup()
   displayMessage("Connected! IP address: ");
   displayMessage(WiFi.localIP().toString().c_str());
 
+  Serial.println("");
+  Serial.println("");
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
 
@@ -108,9 +116,6 @@ void loop()
     Serial.println(message.c_str());
 
     serialMessageCount++;
-
-    //Too verbose
-    //MQTTClient.publish(MQTT_INFO_TOPIC, message.c_str());
 
     dealWithReceivedMessage(message.c_str());
 
@@ -161,12 +166,16 @@ void dealWithReceivedMessage(const std::string message)
 
     MQTTClient.publish(MQTT_ERROR_TOPIC, err.c_str());
 
+    MQTTMessageCount++;
+
     return;
   }
 
   if (msg.startsWith("XRC:"))
   {
     MQTTClient.publish(MQTT_INFO_TOPIC, msg.c_str());
+
+    MQTTMessageCount++;
 
     return;
   }
@@ -192,6 +201,8 @@ void dealWithReceivedMessage(const std::string message)
 
     MQTTClient.publish(topic.c_str(), msg.c_str());
 
+    MQTTMessageCount++;
+
     return;
   }
 
@@ -203,6 +214,8 @@ void dealWithReceivedMessage(const std::string message)
     auto battery = msg.substring(msg.indexOf(":") + 1);
 
     MQTTClient.publish(topic.c_str(), battery.c_str());
+
+    MQTTMessageCount++;
 
     return;
   }
@@ -231,6 +244,8 @@ void dealWithReceivedMessage(const std::string message)
 
     MQTTClient.publish(topic.c_str(), mqttMessage.c_str());
 
+    MQTTMessageCount++;
+
     return;
   }
 
@@ -257,6 +272,8 @@ void dealWithReceivedMessage(const std::string message)
     topic.replace("{{controller}}", controller.c_str());
 
     MQTTClient.publish(topic.c_str(), mqttMessage.c_str());
+
+    MQTTMessageCount++;
 
     return;
   }
@@ -289,6 +306,15 @@ void dealWithReceivedMessage(const std::string message)
       topic.replace("{{controller}}", controller.c_str());
 
       MQTTClient.publish(topic.c_str(), mqttMessage.c_str());
+
+      //new direction function
+      Serial.println(buttonCSV);
+
+      std::stringstream pad;
+      pad << buttonCSV.c_str();
+      convertPadtoDirection(pad.str());
+
+      MQTTMessageCount++;
     }
 
     return;
@@ -341,6 +367,16 @@ void dealWithReceivedMessage(const std::string message)
 
     MQTTClient.publish(topic.c_str(), mqttMessage.c_str());
 
+    //New resolved direction topic (https://blackdoor.github.io/blog/thumbstick-controls/)
+    topic = MQTT_LEFT_DIRECTION_TOPIC;
+    topic.replace("{{controller}}", controller.c_str());
+
+    mqttMessage = convertXYtoDirection(X, Y);
+
+    MQTTClient.publish(topic.c_str(), mqttMessage.c_str());
+
+    MQTTMessageCount++;
+
     return;
   }
 
@@ -391,8 +427,90 @@ void dealWithReceivedMessage(const std::string message)
 
     MQTTClient.publish(topic.c_str(), mqttMessage.c_str());
 
+    //New resolved direction topic (https://blackdoor.github.io/blog/thumbstick-controls/)
+    topic = MQTT_RIGHT_DIRECTION_TOPIC;
+    topic.replace("{{controller}}", controller.c_str());
+
+    mqttMessage = convertXYtoDirection(X, Y);
+
+    MQTTClient.publish(topic.c_str(), mqttMessage.c_str());
+
+    MQTTMessageCount++;
+
     return;
   }
+}
+
+//https://blackdoor.github.io/blog/thumbstick-controls/
+std::string convertPadtoDirection(std::string msg)
+{
+  auto UP = msg.find("UP");
+  auto RIGHT = msg.find("RIGHT");
+  auto LEFT = msg.find("LEFT");
+  auto DOWN = msg.find("DOWN");
+
+  std::stringstream display;
+
+  display << "UP:" << UP << "LEFT:" << LEFT << "RIGHT:" << RIGHT << "DOWN:" << DOWN;
+
+  Serial.println(display.str().c_str());
+
+  return display.str();
+}
+
+//https://github.com/arduino/ArduinoCore-API/issues/71
+float mapf(float value, float istart, float istop, float ostart, float ostop)
+{
+  return ostart + (ostop - ostart) * ((value - istart) / (istop - istart));
+}
+
+//https://blackdoor.github.io/blog/thumbstick-controls/
+std::string convertXYtoDirection(float X, float Y)
+{
+  float mappedXValue = mapf(X, -32768, 32767, -1, 1);
+  float mappedYValue = mapf(Y, -32768, 32767, -1, 1);
+
+  //We have 8 sectors, so get the size of each in degrees.
+  double sectorSize = 360.0f / 8;
+
+  //We also need the size of half a sector
+  double halfSectorSize = sectorSize / 2.0f;
+
+  //First, get the angle using the function above
+  double thumbstickAngle = getAngleFromXY(X, Y);
+
+  //Next, rotate our angle to match the offset of our sectors.
+  double convertedAngle = thumbstickAngle + halfSectorSize;
+
+  //Finally, we get the current direction by dividing the angle
+  // by the size of the sectors
+  int direction = (int)floor(convertedAngle / sectorSize);
+
+  //the result directions map as follows:
+  // 0 = UP, 1 = UP-RIGHT, 2 = RIGHT ... 7 = UP-LEFT.
+
+  std::stringstream msg;
+
+  msg << direction;
+
+  return msg.str();
+}
+
+double getAngleFromXY(float XAxisValue, float YAxisValue)
+{
+  //Normally Atan2 takes Y,X, not X,Y.  We switch these around since we want 0
+  // degrees to be straight up, not to the right like the unit circle;
+  double angleInRadians = atan2(XAxisValue, YAxisValue);
+
+  //Atan2 gives us a negative value for angles in the 3rd and 4th quadrants.
+  // We want a full 360 degrees, so we will add 2 PI to negative values.
+  if (angleInRadians < 0.0f)
+    angleInRadians += (pi * 2.0f);
+
+  //Convert the radians to degrees.  Degrees are easier to visualize.
+  double angleInDegrees = (180.0f * angleInRadians / pi);
+
+  return angleInDegrees;
 }
 
 void checkMQTTconnection()
