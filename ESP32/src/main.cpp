@@ -7,7 +7,6 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <map>
-#include <ArduinoJSON.h>
 #include <topics.h>
 #include <sstream>
 #include <vector>
@@ -21,10 +20,6 @@
 WiFiClient client;
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
 PubSubClient MQTTClient;
-
-//create the JSON object once
-const size_t JSON_capacity = JSON_OBJECT_SIZE(21);
-DynamicJsonDocument JSON(JSON_capacity);
 
 unsigned long displayMessageStartTime = millis();
 uint64_t serialMessageCount = 0;
@@ -164,7 +159,7 @@ void dealWithReceivedMessage(const std::string message)
   {
     String err = "Multiple Commands:" + msg;
 
-    MQTTClient.publish(MQTT_ERROR_TOPIC, err.c_str());
+    MQTTClient.publish(MQTT_ERROR_TOPIC.c_str(), err.c_str());
 
     MQTTMessageCount++;
 
@@ -173,7 +168,7 @@ void dealWithReceivedMessage(const std::string message)
 
   if (msg.startsWith("XRC:"))
   {
-    MQTTClient.publish(MQTT_INFO_TOPIC, msg.c_str());
+    MQTTClient.publish(MQTT_INFO_TOPIC.c_str(), msg.c_str());
 
     MQTTMessageCount++;
 
@@ -227,20 +222,9 @@ void dealWithReceivedMessage(const std::string message)
     long triggerValue = atol(triggerMsg.c_str());
     long triggerValue_mapped = map(triggerValue, 0, 255, 0, 100);
 
-    //clear down JSON array
-    JSON.clear();
-
-    JSON["value"] = triggerValue;
-    JSON["mapped"] = triggerValue_mapped;
-
-    JsonObject buttonObj = JSON.as<JsonObject>();
-
-    std::string mqttMessage;
-
-    serializeJson(buttonObj, mqttMessage);
-
-    String topic = MQTT_LEFT_TRIGGER_TOPIC;
+    String topic = MQTT_BUTTON_TOPIC;
     topic.replace("{{controller}}", controller.c_str());
+    topic = topic + "/bumper_left";
 
     MQTTClient.publish(topic.c_str(), mqttMessage.c_str());
 
@@ -255,18 +239,6 @@ void dealWithReceivedMessage(const std::string message)
 
     long triggerValue = atol(triggerMsg.c_str());
     long triggerValue_mapped = map(triggerValue, 0, 255, 0, 100);
-
-    //clear down JSON array
-    JSON.clear();
-
-    JSON["value"] = triggerValue;
-    JSON["mapped"] = triggerValue_mapped;
-
-    JsonObject buttonObj = JSON.as<JsonObject>();
-
-    std::string mqttMessage;
-
-    serializeJson(buttonObj, mqttMessage);
 
     String topic = MQTT_RIGHT_TRIGGER_TOPIC;
     topic.replace("{{controller}}", controller.c_str());
@@ -286,21 +258,10 @@ void dealWithReceivedMessage(const std::string message)
 
     buttonList = processQueueMessage(buttonCSV.c_str());
 
-    //clear down button array
-    JSON.clear();
 
-    for (std::string i : buttonList)
-    {
-      JSON[i] = true;
-    }
-
-    JsonObject buttonObj = JSON.as<JsonObject>();
-
-    if (buttonObj.size() > 0)
+    if (buttonList.size() > 0)
     {
       std::string mqttMessage;
-
-      serializeJson(buttonObj, mqttMessage);
 
       String topic = MQTT_BUTTON_TOPIC;
       topic.replace("{{controller}}", controller.c_str());
@@ -348,25 +309,9 @@ void dealWithReceivedMessage(const std::string message)
     auto mappedXValue = map(X, -32768, 32767, -100, 100);
     auto mappedYValue = map(Y, -32768, 32767, -100, 100);
 
-    //clear down JSON array
-    JSON.clear();
-
-    JSON["x"] = X;
-    JSON["y"] = Y;
-
-    JSON["x_mapped"] = mappedXValue;
-    JSON["y_mapped"] = mappedYValue;
-
-    JsonObject buttonObj = JSON.as<JsonObject>();
-
-    std::string mqttMessage;
-
-    serializeJson(buttonObj, mqttMessage);
-
     String topic = MQTT_LEFT_TOPIC;
     topic.replace("{{controller}}", controller.c_str());
 
-    MQTTClient.publish(topic.c_str(), mqttMessage.c_str());
 
     //New resolved direction topic (https://blackdoor.github.io/blog/thumbstick-controls/)
     topic = MQTT_LEFT_DIRECTION_TOPIC;
@@ -374,7 +319,7 @@ void dealWithReceivedMessage(const std::string message)
 
     mqttMessage = convertXYtoDirection(X, Y);
 
-    MQTTClient.publish(topic.c_str(), mqttMessage.c_str());
+    MQTTClient.publish(topic.c_str(), convertXYtoDirection(X, Y).c_str());
 
     MQTTMessageCount++;
 
@@ -407,21 +352,6 @@ void dealWithReceivedMessage(const std::string message)
 
     auto mappedXValue = map(X, -32768, 32767, -100, 100);
     auto mappedYValue = map(Y, -32768, 32767, -100, 100);
-
-    //clear down JSON array
-    JSON.clear();
-
-    JSON["x"] = X;
-    JSON["y"] = Y;
-
-    JSON["x_mapped"] = mappedXValue;
-    JSON["y_mapped"] = mappedYValue;
-
-    JsonObject buttonObj = JSON.as<JsonObject>();
-
-    std::string mqttMessage;
-
-    serializeJson(buttonObj, mqttMessage);
 
     String topic = MQTT_RIGHT_TOPIC;
     topic.replace("{{controller}}", controller.c_str());

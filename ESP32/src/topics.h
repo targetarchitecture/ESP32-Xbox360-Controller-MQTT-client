@@ -1,24 +1,24 @@
 #pragma once
 
-auto MQTT_LEFT_TOPIC = "xbox360/{{controller}}/sticks/left";
-auto MQTT_RIGHT_TOPIC = "xbox360/{{controller}}/sticks/right";
+String MQTT_LEFT_X_TOPIC = "gamepads/xbox360/{{controller}}/sticks/left/x";
+String MQTT_RIGHT_Y_TOPIC = "gamepads/xbox360/{{controller}}/sticks/right/y";
+String MQTT_LEFT_XRAW_TOPIC = "gamepads/xbox360/{{controller}}/sticks/left/xraw";
+String MQTT_RIGHT_YRAW_TOPIC = "gamepads/xbox360/{{controller}}/sticks/right/yraw";
 
-auto MQTT_BUTTON_TOPIC = "xbox360/{{controller}}/buttons";
-auto MQTT_LEFT_TRIGGER_TOPIC = "xbox360/{{controller}}/triggers/left";
-auto MQTT_RIGHT_TRIGGER_TOPIC = "xbox360/{{controller}}/triggers/right";
+String MQTT_BUTTON_TOPIC = "gamepads/xbox360/{{controller}}/buttons";
 
-auto MQTT_LEFT_DIRECTION_TOPIC = "xbox360/{{controller}}/sticks/left/direction";
-auto MQTT_RIGHT_DIRECTION_TOPIC = "xbox360/{{controller}}/sticks/right/direction";
-auto MQTT_BUTTON_DIRECTION_TOPIC = "xbox360/{{controller}}/buttons/direction";
+String MQTT_LEFT_DIRECTION_TOPIC = "gamepads/xbox360/{{controller}}/sticks/left/direction";
+String MQTT_RIGHT_DIRECTION_TOPIC = "gamepads/xbox360/{{controller}}/sticks/right/direction";
+String MQTT_BUTTON_DIRECTION_TOPIC = "gamepads/xbox360/{{controller}}/buttons/direction";
 
-auto MQTT_BATTERY_TOPIC = "xbox360/{{controller}}/battery";
-auto MQTT_CONTROLLER_TOPIC = "xbox360/{{controller}}/info";
+String MQTT_BATTERY_TOPIC = "gamepads/xbox360/{{controller}}/battery";
+String MQTT_CONTROLLER_TOPIC = "gamepads/xbox360/{{controller}}/info";
 
-auto MQTT_RUMBLE_TOPIC = "xbox360/{{controller}}/rumble";
+String MQTT_RUMBLE_TOPIC = "gamepads/xbox360/{{controller}}/rumble";
 
-auto MQTT_INFO_TOPIC = "xbox360/info";
-auto MQTT_ERROR_TOPIC = "xbox360/error";
-auto MQTT_IP_TOPIC = "xbox360/ip";
+String MQTT_INFO_TOPIC = "gamepads/xbox360/info";
+String MQTT_ERROR_TOPIC = "gamepads/xbox360/error";
+String MQTT_IP_TOPIC = "gamepads/xbox360/ip";
 
 
 
