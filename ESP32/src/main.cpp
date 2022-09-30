@@ -32,7 +32,6 @@ void displayMessage(std::string message);
 void updateMessageCount();
 void checkMQTTconnection();
 void dealWithReceivedMessage(const std::string message);
-std::vector<std::string> processQueueMessage(const std::string msg);
 double getAngleFromXY(float XAxisValue, float YAxisValue);
 std::string convertXYtoDirection(float X, float Y);
 float mapf(float value, float istart, float istop, float ostart, float ostop);
@@ -282,16 +281,7 @@ void dealWithReceivedMessage(const std::string message)
       MQTTClient.publish(topic.c_str(), mqttMessage.c_str());
     }
 
-      // new direction function
-      // topic = MQTT_BUTTON_DIRECTION_TOPIC;
-      // topic.replace("{{controller}}", controller.c_str());
-
-      // std::stringstream pad;
-      // pad << buttonCSV.c_str();
-      // convertPadtoDirection(pad.str(), topic.c_str());
-
-      MQTTMessageCount++;
-    
+    MQTTMessageCount++;
 
     return;
   }
@@ -320,21 +310,28 @@ void dealWithReceivedMessage(const std::string message)
     auto X = atoi(Xstr.c_str());
     auto Y = atoi(Ystr.c_str());
 
-    auto mappedXValue = map(X, -32768, 32767, -100, 100);
-    auto mappedYValue = map(Y, -32768, 32767, -100, 100);
+    auto mappedXValue = String(map(X, -32768, 32767, -100, 100));
+    auto mappedYValue = String(map(Y, -32768, 32767, -100, 100));
 
-    String topic = MQTT_LEFT_TOPIC;
+    String topic = MQTT_LEFT_XRAW_TOPIC;
     topic.replace("{{controller}}", controller.c_str());
 
-    MQTTClient.publish(topic.c_str(), convertXYtoDirection(X, Y).c_str());
+    MQTTClient.publish(topic.c_str(), Xstr.c_str());
 
-    // New resolved direction topic (https://blackdoor.github.io/blog/thumbstick-controls/)
-    topic = MQTT_LEFT_DIRECTION_TOPIC;
+    topic = MQTT_LEFT_X_TOPIC;
     topic.replace("{{controller}}", controller.c_str());
 
-    // mqttMessage = convertXYtoDirection(X, Y);
+    MQTTClient.publish(topic.c_str(), mappedXValue.c_str());
 
-    MQTTClient.publish(topic.c_str(), convertXYtoDirection(X, Y).c_str());
+    topic = MQTT_LEFT_YRAW_TOPIC;
+    topic.replace("{{controller}}", controller.c_str());
+
+    MQTTClient.publish(topic.c_str(), Ystr.c_str());
+
+    topic = MQTT_LEFT_Y_TOPIC;
+    topic.replace("{{controller}}", controller.c_str());
+
+    MQTTClient.publish(topic.c_str(), mappedYValue.c_str());
 
     MQTTMessageCount++;
 
@@ -365,147 +362,33 @@ void dealWithReceivedMessage(const std::string message)
     auto X = atoi(Xstr.c_str());
     auto Y = atoi(Ystr.c_str());
 
-    auto mappedXValue = map(X, -32768, 32767, -100, 100);
-    auto mappedYValue = map(Y, -32768, 32767, -100, 100);
+    auto mappedXValue = String( map(X, -32768, 32767, -100, 100));
+    auto mappedYValue = String(map(Y, -32768, 32767, -100, 100));
 
-    String topic = MQTT_RIGHT_TOPIC;
+    String topic = MQTT_RIGHT_XRAW_TOPIC;
     topic.replace("{{controller}}", controller.c_str());
 
-    MQTTClient.publish(topic.c_str(), mqttMessage.c_str());
+    MQTTClient.publish(topic.c_str(), Xstr.c_str());
 
-    // New resolved direction topic (https://blackdoor.github.io/blog/thumbstick-controls/)
-    topic = MQTT_RIGHT_DIRECTION_TOPIC;
+    topic = MQTT_RIGHT_X_TOPIC;
     topic.replace("{{controller}}", controller.c_str());
 
-    mqttMessage = convertXYtoDirection(X, Y);
+    MQTTClient.publish(topic.c_str(), mappedXValue.c_str());
 
-    MQTTClient.publish(topic.c_str(), mqttMessage.c_str());
+    topic = MQTT_RIGHT_YRAW_TOPIC;
+    topic.replace("{{controller}}", controller.c_str());
+
+    MQTTClient.publish(topic.c_str(), Ystr.c_str());
+
+    topic = MQTT_RIGHT_Y_TOPIC;
+    topic.replace("{{controller}}", controller.c_str());
+
+    MQTTClient.publish(topic.c_str(), mappedYValue.c_str());
 
     MQTTMessageCount++;
 
     return;
   }
-}
-
-// https://blackdoor.github.io/blog/thumbstick-controls/
-void convertPadtoDirection(std::string msg, const char *topic)
-{
-  bool UP = false;
-  bool RIGHT = false;
-  bool LEFT = false;
-  bool DOWN = false;
-
-  if (msg.find("UP") != std::string::npos)
-  {
-    UP = true;
-  }
-  if (msg.find("RIGHT") != std::string::npos)
-  {
-    RIGHT = true;
-  }
-  if (msg.find("LEFT") != std::string::npos)
-  {
-    LEFT = true;
-  }
-  if (msg.find("DOWN") != std::string::npos)
-  {
-    DOWN = true;
-  }
-
-  std::stringstream display;
-
-  display << "UP:" << UP << "LEFT:" << LEFT << "RIGHT:" << RIGHT << "DOWN:" << DOWN;
-
-  if (UP == true && RIGHT == false && DOWN == false && LEFT == false)
-  {
-    MQTTClient.publish(topic, "0");
-  }
-  else if (UP == true && RIGHT == true && DOWN == false && LEFT == false)
-  {
-    MQTTClient.publish(topic, "1");
-  }
-  else if (UP == false && RIGHT == true && DOWN == false && LEFT == false)
-  {
-    MQTTClient.publish(topic, "2");
-  }
-  else if (UP == false && RIGHT == true && DOWN == true && LEFT == false)
-  {
-    MQTTClient.publish(topic, "3");
-  }
-  else if (UP == false && RIGHT == false && DOWN == true && LEFT == false)
-  {
-    MQTTClient.publish(topic, "4");
-  }
-  else if (UP == false && RIGHT == false && DOWN == true && LEFT == true)
-  {
-    MQTTClient.publish(topic, "5");
-  }
-  else if (UP == false && RIGHT == false && DOWN == false && LEFT == true)
-  {
-    MQTTClient.publish(topic, "6");
-  }
-  else if (UP == true && RIGHT == false && DOWN == false && LEFT == true)
-  {
-    MQTTClient.publish(topic, "7");
-  }
-}
-
-// https://github.com/arduino/ArduinoCore-API/issues/71
-float mapf(float value, float istart, float istop, float ostart, float ostop)
-{
-  return ostart + (ostop - ostart) * ((value - istart) / (istop - istart));
-}
-
-// https://blackdoor.github.io/blog/thumbstick-controls/
-std::string convertXYtoDirection(float X, float Y)
-{
-  float mappedXValue = mapf(X, -32768, 32767, -1, 1);
-  float mappedYValue = mapf(Y, -32768, 32767, -1, 1);
-
-  // We have 8 sectors, so get the size of each in degrees.
-  double sectorSize = 360.0f / 8;
-
-  // We also need the size of half a sector
-  double halfSectorSize = sectorSize / 2.0f;
-
-  // First, get the angle using the function above
-  double thumbstickAngle = getAngleFromXY(X, Y);
-
-  // Next, rotate our angle to match the offset of our sectors.
-  double convertedAngle = thumbstickAngle + halfSectorSize;
-
-  // Finally, we get the current direction by dividing the angle
-  //  by the size of the sectors
-  int direction = (int)floor(convertedAngle / sectorSize);
-
-  // cull back to 7
-  direction = max(direction, 7);
-
-  // the result directions map as follows:
-  //  0 = UP, 1 = UP-RIGHT, 2 = RIGHT ... 7 = UP-LEFT.
-
-  std::stringstream msg;
-
-  msg << direction;
-
-  return msg.str();
-}
-
-double getAngleFromXY(float XAxisValue, float YAxisValue)
-{
-  // Normally Atan2 takes Y,X, not X,Y.  We switch these around since we want 0
-  //  degrees to be straight up, not to the right like the unit circle;
-  double angleInRadians = atan2(XAxisValue, YAxisValue);
-
-  // Atan2 gives us a negative value for angles in the 3rd and 4th quadrants.
-  //  We want a full 360 degrees, so we will add 2 PI to negative values.
-  if (angleInRadians < 0.0f)
-    angleInRadians += (pi * 2.0f);
-
-  // Convert the radians to degrees.  Degrees are easier to visualize.
-  double angleInDegrees = (180.0f * angleInRadians / pi);
-
-  return angleInDegrees;
 }
 
 void checkMQTTconnection()
@@ -530,18 +413,4 @@ void displayMessage(const std::string message)
   // https://javl.github.io/image2cpp/
   display.drawBitmap(0, 16, xboxLogo, 128, 48, WHITE); // display.drawBitmap(x position, y position, bitmap data, bitmap width, bitmap height, color)
   display.display();
-}
-
-std::vector<std::string> processQueueMessage2(const std::string msg)
-{
-  std::vector<std::string> parts;
-  std::istringstream f(msg);
-  std::string part;
-
-  while (std::getline(f, part, ','))
-  {
-    parts.push_back(part);
-  }
-
-  return parts;
 }
