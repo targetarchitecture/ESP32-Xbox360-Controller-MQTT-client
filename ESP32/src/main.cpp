@@ -27,7 +27,7 @@ uint64_t MQTTMessageCount = 0;
 
 constexpr double pi = 3.14159265358979323846;
 
-//declare functions
+// declare functions
 void displayMessage(std::string message);
 void updateMessageCount();
 void checkMQTTconnection();
@@ -42,7 +42,7 @@ void setup()
 {
   pinMode(LED_BUILTIN, OUTPUT);
 
-  //turn off bluetooth
+  // turn off bluetooth
   btStop();
 
 #if defined(USE_SERIAL)
@@ -51,7 +51,7 @@ void setup()
   Serial.flush();
 #endif
 
-  //baud speed of Arduino Uno sketch
+  // baud speed of Arduino Uno sketch
   Serial2.begin(115200);
 
   // Init I2C bus & OLED
@@ -64,12 +64,12 @@ void setup()
     ESP.restart();
   }
 
-  //WIFI start up
+  // WIFI start up
   displayMessage("Connecting to WiFi");
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
 
-  //connect
+  // connect
   while (WiFi.status() != WL_CONNECTED)
   {
     delay(1000);
@@ -84,7 +84,7 @@ void setup()
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
 
-  //set this to be a large enough value to allow a large MQTT message
+  // set this to be a large enough value to allow a large MQTT message
   MQTTClient.setBufferSize(5000);
 
   displayMessage("Connecting to MQTT server");
@@ -97,7 +97,7 @@ void setup()
 
 void loop()
 {
-  //sort out the OLED display message
+  // sort out the OLED display message
   updateMessageCount();
 
   if (Serial2.available())
@@ -119,13 +119,13 @@ void loop()
     digitalWrite(LED_BUILTIN, LOW);
   }
 
-  //give some breathing space (arduino only has 5ms delay)
+  // give some breathing space (arduino only has 5ms delay)
   delay(5);
 }
 
 void updateMessageCount()
 {
-  //send reciever state every one second
+  // send reciever state every one second
   if (millis() - displayMessageStartTime >= 1000)
   {
     std::stringstream msg;
@@ -143,13 +143,13 @@ void updateMessageCount()
 
 void dealWithReceivedMessage(const std::string message)
 {
-  //deal with the message and make ready for sending
+  // deal with the message and make ready for sending
   String msg = message.c_str();
 
   msg.trim();
   msg.toUpperCase();
 
-  //check for bad string with more than one command
+  // check for bad string with more than one command
   auto L1 = msg.length();
   auto msg2 = msg;
   msg2.replace(":", "");
@@ -175,7 +175,7 @@ void dealWithReceivedMessage(const std::string message)
     return;
   }
 
-  std::string controller = "666";
+  std::string controller = "";
 
   if (msg.startsWith("0#"))
   {
@@ -185,8 +185,16 @@ void dealWithReceivedMessage(const std::string message)
   {
     controller = "2";
   }
+  if (msg.startsWith("2#"))
+  {
+    controller = "3";
+  }
+  if (msg.startsWith("4#"))
+  {
+    controller = "4";
+  }
 
-  //remove the controller index off the front
+  // remove the controller index off the front
   msg = msg.substring(2);
 
   if (msg.startsWith("XCC:"))
@@ -219,14 +227,17 @@ void dealWithReceivedMessage(const std::string message)
   {
     auto triggerMsg = msg.substring(msg.indexOf(",") + 1);
 
-    long triggerValue = atol(triggerMsg.c_str());
-    long triggerValue_mapped = map(triggerValue, 0, 255, 0, 100);
-
-    String topic = MQTT_BUTTON_TOPIC;
+    String topic = MQTT_BUTTON_TOPIC + "/trigger_left";
     topic.replace("{{controller}}", controller.c_str());
-    topic = topic + "/bumper_left";
 
-    MQTTClient.publish(topic.c_str(), mqttMessage.c_str());
+    MQTTClient.publish(topic.c_str(), triggerMsg.c_str());
+
+    auto triggerValue_mapped = String(map(atol(triggerMsg.c_str()), 0, 255, 0, 100));
+
+    String topicRaw = MQTT_BUTTON_TOPIC + "/trigger_left_raw";
+    topicRaw.replace("{{controller}}", controller.c_str());
+
+    MQTTClient.publish(topicRaw.c_str(), triggerValue_mapped.c_str());
 
     MQTTMessageCount++;
 
@@ -237,13 +248,17 @@ void dealWithReceivedMessage(const std::string message)
   {
     auto triggerMsg = msg.substring(msg.indexOf(",") + 1);
 
-    long triggerValue = atol(triggerMsg.c_str());
-    long triggerValue_mapped = map(triggerValue, 0, 255, 0, 100);
-
-    String topic = MQTT_RIGHT_TRIGGER_TOPIC;
+    String topic = MQTT_BUTTON_TOPIC + "/trigger_right";
     topic.replace("{{controller}}", controller.c_str());
 
-    MQTTClient.publish(topic.c_str(), mqttMessage.c_str());
+    MQTTClient.publish(topic.c_str(), triggerMsg.c_str());
+
+    auto triggerValue_mapped = String(map(atol(triggerMsg.c_str()), 0, 255, 0, 100));
+
+    String topicRaw = MQTT_BUTTON_TOPIC + "/trigger_right_raw";
+    topicRaw.replace("{{controller}}", controller.c_str());
+
+    MQTTClient.publish(topicRaw.c_str(), triggerValue_mapped.c_str());
 
     MQTTMessageCount++;
 
@@ -254,30 +269,29 @@ void dealWithReceivedMessage(const std::string message)
   {
     String buttonCSV = msg.substring(msg.indexOf(":") + 1);
 
-    std::vector<std::string> buttonList;
+    std::istringstream buttons(buttonCSV.c_str());
+    std::string button;
 
-    buttonList = processQueueMessage(buttonCSV.c_str());
-
-
-    if (buttonList.size() > 0)
+    while (std::getline(buttons, button, ','))
     {
-      std::string mqttMessage;
+      std::string mqttMessage = "press";
 
-      String topic = MQTT_BUTTON_TOPIC;
+      String topic = MQTT_BUTTON_TOPIC + String("/") + button.c_str();
       topic.replace("{{controller}}", controller.c_str());
 
       MQTTClient.publish(topic.c_str(), mqttMessage.c_str());
+    }
 
-      //new direction function
-      topic = MQTT_BUTTON_DIRECTION_TOPIC;
-      topic.replace("{{controller}}", controller.c_str());
+      // new direction function
+      // topic = MQTT_BUTTON_DIRECTION_TOPIC;
+      // topic.replace("{{controller}}", controller.c_str());
 
-      std::stringstream pad;
-      pad << buttonCSV.c_str();
-      convertPadtoDirection(pad.str(), topic.c_str());
+      // std::stringstream pad;
+      // pad << buttonCSV.c_str();
+      // convertPadtoDirection(pad.str(), topic.c_str());
 
       MQTTMessageCount++;
-    }
+    
 
     return;
   }
@@ -286,7 +300,7 @@ void dealWithReceivedMessage(const std::string message)
   {
     String hatCSV = msg.substring(msg.indexOf(":") + 1);
 
-    //Serial.println(hatCSV.c_str());
+    // Serial.println(hatCSV.c_str());
 
     std::list<std::string> hatValues;
     std::istringstream f(hatCSV.c_str());
@@ -312,12 +326,13 @@ void dealWithReceivedMessage(const std::string message)
     String topic = MQTT_LEFT_TOPIC;
     topic.replace("{{controller}}", controller.c_str());
 
+    MQTTClient.publish(topic.c_str(), convertXYtoDirection(X, Y).c_str());
 
-    //New resolved direction topic (https://blackdoor.github.io/blog/thumbstick-controls/)
+    // New resolved direction topic (https://blackdoor.github.io/blog/thumbstick-controls/)
     topic = MQTT_LEFT_DIRECTION_TOPIC;
     topic.replace("{{controller}}", controller.c_str());
 
-    mqttMessage = convertXYtoDirection(X, Y);
+    // mqttMessage = convertXYtoDirection(X, Y);
 
     MQTTClient.publish(topic.c_str(), convertXYtoDirection(X, Y).c_str());
 
@@ -330,7 +345,7 @@ void dealWithReceivedMessage(const std::string message)
   {
     String hatCSV = msg.substring(msg.indexOf(":") + 1);
 
-    //Serial.println(hatCSV.c_str());
+    // Serial.println(hatCSV.c_str());
 
     std::list<std::string> hatValues;
     std::istringstream f(hatCSV.c_str());
@@ -358,7 +373,7 @@ void dealWithReceivedMessage(const std::string message)
 
     MQTTClient.publish(topic.c_str(), mqttMessage.c_str());
 
-    //New resolved direction topic (https://blackdoor.github.io/blog/thumbstick-controls/)
+    // New resolved direction topic (https://blackdoor.github.io/blog/thumbstick-controls/)
     topic = MQTT_RIGHT_DIRECTION_TOPIC;
     topic.replace("{{controller}}", controller.c_str());
 
@@ -372,7 +387,7 @@ void dealWithReceivedMessage(const std::string message)
   }
 }
 
-//https://blackdoor.github.io/blog/thumbstick-controls/
+// https://blackdoor.github.io/blog/thumbstick-controls/
 void convertPadtoDirection(std::string msg, const char *topic)
 {
   bool UP = false;
@@ -435,39 +450,39 @@ void convertPadtoDirection(std::string msg, const char *topic)
   }
 }
 
-//https://github.com/arduino/ArduinoCore-API/issues/71
+// https://github.com/arduino/ArduinoCore-API/issues/71
 float mapf(float value, float istart, float istop, float ostart, float ostop)
 {
   return ostart + (ostop - ostart) * ((value - istart) / (istop - istart));
 }
 
-//https://blackdoor.github.io/blog/thumbstick-controls/
+// https://blackdoor.github.io/blog/thumbstick-controls/
 std::string convertXYtoDirection(float X, float Y)
 {
   float mappedXValue = mapf(X, -32768, 32767, -1, 1);
   float mappedYValue = mapf(Y, -32768, 32767, -1, 1);
 
-  //We have 8 sectors, so get the size of each in degrees.
+  // We have 8 sectors, so get the size of each in degrees.
   double sectorSize = 360.0f / 8;
 
-  //We also need the size of half a sector
+  // We also need the size of half a sector
   double halfSectorSize = sectorSize / 2.0f;
 
-  //First, get the angle using the function above
+  // First, get the angle using the function above
   double thumbstickAngle = getAngleFromXY(X, Y);
 
-  //Next, rotate our angle to match the offset of our sectors.
+  // Next, rotate our angle to match the offset of our sectors.
   double convertedAngle = thumbstickAngle + halfSectorSize;
 
-  //Finally, we get the current direction by dividing the angle
-  // by the size of the sectors
+  // Finally, we get the current direction by dividing the angle
+  //  by the size of the sectors
   int direction = (int)floor(convertedAngle / sectorSize);
 
-  //cull back to 7
-  direction = max(direction,7);
+  // cull back to 7
+  direction = max(direction, 7);
 
-  //the result directions map as follows:
-  // 0 = UP, 1 = UP-RIGHT, 2 = RIGHT ... 7 = UP-LEFT.
+  // the result directions map as follows:
+  //  0 = UP, 1 = UP-RIGHT, 2 = RIGHT ... 7 = UP-LEFT.
 
   std::stringstream msg;
 
@@ -478,16 +493,16 @@ std::string convertXYtoDirection(float X, float Y)
 
 double getAngleFromXY(float XAxisValue, float YAxisValue)
 {
-  //Normally Atan2 takes Y,X, not X,Y.  We switch these around since we want 0
-  // degrees to be straight up, not to the right like the unit circle;
+  // Normally Atan2 takes Y,X, not X,Y.  We switch these around since we want 0
+  //  degrees to be straight up, not to the right like the unit circle;
   double angleInRadians = atan2(XAxisValue, YAxisValue);
 
-  //Atan2 gives us a negative value for angles in the 3rd and 4th quadrants.
-  // We want a full 360 degrees, so we will add 2 PI to negative values.
+  // Atan2 gives us a negative value for angles in the 3rd and 4th quadrants.
+  //  We want a full 360 degrees, so we will add 2 PI to negative values.
   if (angleInRadians < 0.0f)
     angleInRadians += (pi * 2.0f);
 
-  //Convert the radians to degrees.  Degrees are easier to visualize.
+  // Convert the radians to degrees.  Degrees are easier to visualize.
   double angleInDegrees = (180.0f * angleInRadians / pi);
 
   return angleInDegrees;
@@ -506,18 +521,18 @@ void checkMQTTconnection()
 
 void displayMessage(const std::string message)
 {
-  display.clearDisplay(); //for Clearing the display
+  display.clearDisplay(); // for Clearing the display
   display.setTextSize(1); // Draw 2X-scale text
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(0, 0);
   display.print(message.c_str());
 
-  //https://javl.github.io/image2cpp/
+  // https://javl.github.io/image2cpp/
   display.drawBitmap(0, 16, xboxLogo, 128, 48, WHITE); // display.drawBitmap(x position, y position, bitmap data, bitmap width, bitmap height, color)
   display.display();
 }
 
-std::vector<std::string> processQueueMessage(const std::string msg)
+std::vector<std::string> processQueueMessage2(const std::string msg)
 {
   std::vector<std::string> parts;
   std::istringstream f(msg);
