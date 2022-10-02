@@ -313,22 +313,22 @@ void dealWithReceivedMessage(const std::string message)
     auto mappedXValue = String(map(X, -32768, 32767, -100, 100));
     auto mappedYValue = String(map(Y, -32768, 32767, -100, 100));
 
-    String topic = MQTT_LEFT_XRAW_TOPIC;
+    String topic = MQTT_LEFT_X_TOPIC;
     topic.replace("{{controller}}", controller.c_str());
 
     MQTTClient.publish(topic.c_str(), Xstr.c_str());
 
-    topic = MQTT_LEFT_X_TOPIC;
+    topic = MQTT_LEFT_XRAW_TOPIC;
     topic.replace("{{controller}}", controller.c_str());
 
     MQTTClient.publish(topic.c_str(), mappedXValue.c_str());
 
-    topic = MQTT_LEFT_YRAW_TOPIC;
+    topic = MQTT_LEFT_Y_TOPIC;
     topic.replace("{{controller}}", controller.c_str());
 
     MQTTClient.publish(topic.c_str(), Ystr.c_str());
 
-    topic = MQTT_LEFT_Y_TOPIC;
+    topic = MQTT_LEFT_YRAW_TOPIC;
     topic.replace("{{controller}}", controller.c_str());
 
     MQTTClient.publish(topic.c_str(), mappedYValue.c_str());
@@ -362,7 +362,7 @@ void dealWithReceivedMessage(const std::string message)
     auto X = atoi(Xstr.c_str());
     auto Y = atoi(Ystr.c_str());
 
-    auto mappedXValue = String( map(X, -32768, 32767, -100, 100));
+    auto mappedXValue = String(map(X, -32768, 32767, -100, 100));
     auto mappedYValue = String(map(Y, -32768, 32767, -100, 100));
 
     String topic = MQTT_RIGHT_XRAW_TOPIC;
