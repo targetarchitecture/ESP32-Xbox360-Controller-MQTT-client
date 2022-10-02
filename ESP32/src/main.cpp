@@ -200,6 +200,7 @@ void dealWithReceivedMessage(const std::string message)
   {
     String topic = MQTT_CONTROLLER_TOPIC;
     topic.replace("{{controller}}", controller.c_str());
+    topic.toLowerCase();
 
     MQTTClient.publish(topic.c_str(), msg.c_str());
 
@@ -228,6 +229,7 @@ void dealWithReceivedMessage(const std::string message)
 
     String topic = MQTT_BUTTON_TOPIC + "/trigger_left_raw";
     topic.replace("{{controller}}", controller.c_str());
+    topic.toLowerCase();
 
     MQTTClient.publish(topic.c_str(), triggerMsg.c_str());
 
@@ -235,6 +237,7 @@ void dealWithReceivedMessage(const std::string message)
 
     String topicRaw = MQTT_BUTTON_TOPIC + "/trigger_left";
     topicRaw.replace("{{controller}}", controller.c_str());
+    topicRaw.toLowerCase();
 
     MQTTClient.publish(topicRaw.c_str(), triggerValue_mapped.c_str());
 
@@ -249,6 +252,7 @@ void dealWithReceivedMessage(const std::string message)
 
     String topic = MQTT_BUTTON_TOPIC + "/trigger_right_raw";
     topic.replace("{{controller}}", controller.c_str());
+    topic.toLowerCase();
 
     MQTTClient.publish(topic.c_str(), triggerMsg.c_str());
 
@@ -256,6 +260,7 @@ void dealWithReceivedMessage(const std::string message)
 
     String topicRaw = MQTT_BUTTON_TOPIC + "/trigger_right";
     topicRaw.replace("{{controller}}", controller.c_str());
+    topicRaw.toLowerCase();
 
     MQTTClient.publish(topicRaw.c_str(), triggerValue_mapped.c_str());
 
@@ -277,6 +282,7 @@ void dealWithReceivedMessage(const std::string message)
 
       String topic = MQTT_BUTTON_TOPIC + String("/") + button.c_str();
       topic.replace("{{controller}}", controller.c_str());
+      topic.toLowerCase();
 
       MQTTClient.publish(topic.c_str(), mqttMessage.c_str());
     }
@@ -315,21 +321,25 @@ void dealWithReceivedMessage(const std::string message)
 
     String topic = MQTT_LEFT_X_TOPIC;
     topic.replace("{{controller}}", controller.c_str());
+    topic.toLowerCase();
 
     MQTTClient.publish(topic.c_str(), mappedXValue.c_str());
 
     topic = MQTT_LEFT_XRAW_TOPIC;
     topic.replace("{{controller}}", controller.c_str());
+    topic.toLowerCase();
 
     MQTTClient.publish(topic.c_str(), Xstr.c_str());
 
     topic = MQTT_LEFT_Y_TOPIC;
     topic.replace("{{controller}}", controller.c_str());
+    topic.toLowerCase();
 
     MQTTClient.publish(topic.c_str(), mappedYValue.c_str());
 
     topic = MQTT_LEFT_YRAW_TOPIC;
     topic.replace("{{controller}}", controller.c_str());
+    topic.toLowerCase();
 
     MQTTClient.publish(topic.c_str(), Ystr.c_str());
 
@@ -367,21 +377,25 @@ void dealWithReceivedMessage(const std::string message)
 
     String topic = MQTT_RIGHT_XRAW_TOPIC;
     topic.replace("{{controller}}", controller.c_str());
+    topic.toLowerCase();
 
     MQTTClient.publish(topic.c_str(), Xstr.c_str());
 
     topic = MQTT_RIGHT_X_TOPIC;
     topic.replace("{{controller}}", controller.c_str());
+    topic.toLowerCase();
 
     MQTTClient.publish(topic.c_str(), mappedXValue.c_str());
 
     topic = MQTT_RIGHT_YRAW_TOPIC;
     topic.replace("{{controller}}", controller.c_str());
+    topic.toLowerCase();
 
     MQTTClient.publish(topic.c_str(), Ystr.c_str());
 
     topic = MQTT_RIGHT_Y_TOPIC;
     topic.replace("{{controller}}", controller.c_str());
+    topic.toLowerCase();
 
     MQTTClient.publish(topic.c_str(), mappedYValue.c_str());
 
