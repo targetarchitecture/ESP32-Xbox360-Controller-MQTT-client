@@ -226,14 +226,14 @@ void dealWithReceivedMessage(const std::string message)
   {
     auto triggerMsg = msg.substring(msg.indexOf(",") + 1);
 
-    String topic = MQTT_BUTTON_TOPIC + "/trigger_left";
+    String topic = MQTT_BUTTON_TOPIC + "/trigger_left_raw";
     topic.replace("{{controller}}", controller.c_str());
 
     MQTTClient.publish(topic.c_str(), triggerMsg.c_str());
 
     auto triggerValue_mapped = String(map(atol(triggerMsg.c_str()), 0, 255, 0, 100));
 
-    String topicRaw = MQTT_BUTTON_TOPIC + "/trigger_left_raw";
+    String topicRaw = MQTT_BUTTON_TOPIC + "/trigger_left";
     topicRaw.replace("{{controller}}", controller.c_str());
 
     MQTTClient.publish(topicRaw.c_str(), triggerValue_mapped.c_str());
@@ -247,14 +247,14 @@ void dealWithReceivedMessage(const std::string message)
   {
     auto triggerMsg = msg.substring(msg.indexOf(",") + 1);
 
-    String topic = MQTT_BUTTON_TOPIC + "/trigger_right";
+    String topic = MQTT_BUTTON_TOPIC + "/trigger_right_raw";
     topic.replace("{{controller}}", controller.c_str());
 
     MQTTClient.publish(topic.c_str(), triggerMsg.c_str());
 
     auto triggerValue_mapped = String(map(atol(triggerMsg.c_str()), 0, 255, 0, 100));
 
-    String topicRaw = MQTT_BUTTON_TOPIC + "/trigger_right_raw";
+    String topicRaw = MQTT_BUTTON_TOPIC + "/trigger_right";
     topicRaw.replace("{{controller}}", controller.c_str());
 
     MQTTClient.publish(topicRaw.c_str(), triggerValue_mapped.c_str());
@@ -316,22 +316,22 @@ void dealWithReceivedMessage(const std::string message)
     String topic = MQTT_LEFT_X_TOPIC;
     topic.replace("{{controller}}", controller.c_str());
 
-    MQTTClient.publish(topic.c_str(), Xstr.c_str());
+    MQTTClient.publish(topic.c_str(), mappedXValue.c_str());
 
     topic = MQTT_LEFT_XRAW_TOPIC;
     topic.replace("{{controller}}", controller.c_str());
 
-    MQTTClient.publish(topic.c_str(), mappedXValue.c_str());
+    MQTTClient.publish(topic.c_str(), Xstr.c_str());
 
     topic = MQTT_LEFT_Y_TOPIC;
     topic.replace("{{controller}}", controller.c_str());
 
-    MQTTClient.publish(topic.c_str(), Ystr.c_str());
+    MQTTClient.publish(topic.c_str(), mappedYValue.c_str());
 
     topic = MQTT_LEFT_YRAW_TOPIC;
     topic.replace("{{controller}}", controller.c_str());
 
-    MQTTClient.publish(topic.c_str(), mappedYValue.c_str());
+    MQTTClient.publish(topic.c_str(), Ystr.c_str());
 
     MQTTMessageCount++;
 

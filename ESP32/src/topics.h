@@ -1,14 +1,14 @@
 #pragma once
 
 String MQTT_LEFT_X_TOPIC = "gamepads/xbox360/{{controller}}/sticks/left/x";
-String MQTT_LEFT_XRAW_TOPIC = "gamepads/xbox360/{{controller}}/sticks/left/xraw";
+String MQTT_LEFT_XRAW_TOPIC = "gamepads/xbox360/{{controller}}/sticks/left/x_raw";
 String MQTT_LEFT_Y_TOPIC = "gamepads/xbox360/{{controller}}/sticks/left/y";
-String MQTT_LEFT_YRAW_TOPIC = "gamepads/xbox360/{{controller}}/sticks/left/yraw";
+String MQTT_LEFT_YRAW_TOPIC = "gamepads/xbox360/{{controller}}/sticks/left/y_raw";
 
 String MQTT_RIGHT_X_TOPIC = "gamepads/xbox360/{{controller}}/sticks/right/x";
-String MQTT_RIGHT_XRAW_TOPIC = "gamepads/xbox360/{{controller}}/sticks/right/xraw";
+String MQTT_RIGHT_XRAW_TOPIC = "gamepads/xbox360/{{controller}}/sticks/right/x_raw";
 String MQTT_RIGHT_Y_TOPIC = "gamepads/xbox360/{{controller}}/sticks/right/y";
-String MQTT_RIGHT_YRAW_TOPIC = "gamepads/xbox360/{{controller}}/sticks/right/yraw";
+String MQTT_RIGHT_YRAW_TOPIC = "gamepads/xbox360/{{controller}}/sticks/right/y_raw";
 
 String MQTT_BUTTON_TOPIC = "gamepads/xbox360/{{controller}}/buttons";
 
